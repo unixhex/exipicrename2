@@ -11,6 +11,7 @@ status: testing Pillow / early development
 """
 
 import os
+import re
 # PIL from Pillow
 import PIL
 import PIL.Image
@@ -20,9 +21,15 @@ import PIL.ExifTags
 # since a dot is not good in file names we use something else
 DELIMITER = '-'
 
+# camera names sometimes include spaces or komma or other characters which are
+# inadvisable for filenames. this is the replacement string if
+# such non allowed characters are found in the camera name
+SUBSTITUTE = '-'
+
 # if the lens is analog, the value for aperture or length might be zero
 # which string should be written instead?
 NOVALUE = 'x'
+
 
 def print_exif(img):
     """print exif data
@@ -39,17 +46,23 @@ def print_exif(img):
 
     # TODO date + time formating (YYYYmmdd-HHMMSS)
 
-    aperture = format_aperture(exif['FNumber'])
-
+    _aperture = format_aperture(exif['FNumber'])
     _exposure_time = format_exposuretime_tuple(exif['ExposureTime'])
     _focal_len = format_focal_length_tuple(exif['FocalLength'])
+    _camera = format_camera_name(exif['Model'])
 
     print(f"date: {exif['DateTimeOriginal']}\n"
-          f"camera: {exif['Model']}\n"
+          # f"camera: {exif['Model']}\n"
+          f"camera: {_camera}\n"
           f"Focal Length: {_focal_len}\n"
           f"Exposure Time: {_exposure_time}\n"
-          f"Aperture: {aperture}\n"
+          f"Aperture: {_aperture}\n"
           )
+
+def format_camera_name(_name):
+    "format camera name - substitute unwanted characters, lower case"
+    return re.sub(r'[^a-zA-Z0-9]+', SUBSTITUTE, _name.strip().lower())
+
 
 def format_aperture(_tuple):
     "format aperture tuple to short printable string"
@@ -60,9 +73,10 @@ def format_aperture(_tuple):
         return NOVALUE
 
     if numerator % divisor == 0:
-        return numerator
+        return "f" + str(numerator)
 
-    return str(numerator/divisor).replace('.', DELIMITER)
+    return "f" + str(numerator/divisor).replace('.', DELIMITER)
+
 
 def format_focal_length_tuple(_tuple):
     """format FocalLenght tuple to short printable string
@@ -113,6 +127,8 @@ def format_exposuretime_tuple(_tuple):
         _string = f"{divisor}"
     return _string
 
+
+
 if __name__ == '__main__':
 
     IMGDIR = "beispiele"
@@ -125,3 +141,5 @@ if __name__ == '__main__':
         print(30*"-")
         print(bildname)
         print_exif(bild)
+
+# *** THE END ***
