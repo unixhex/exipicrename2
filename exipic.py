@@ -11,7 +11,9 @@ status: testing Pillow / early development
 """
 
 import os
+import sys
 import re
+import csv
 # PIL from Pillow
 import PIL
 import PIL.Image
@@ -30,6 +32,8 @@ SUBSTITUTE = '-'
 # which string should be written instead?
 NOVALUE = 'x'
 
+MODEL_TRANSLATE_CSV = "camera-model-rename.csv"
+CAMERADICT={}
 
 def print_exif(img):
     """print exif data
@@ -61,7 +65,12 @@ def print_exif(img):
 
 def format_camera_name(_name):
     "format camera name - substitute unwanted characters, lower case"
-    return re.sub(r'[^a-zA-Z0-9]+', SUBSTITUTE, _name.strip().lower())
+    _newname=re.sub(r'[^a-zA-Z0-9]+', SUBSTITUTE, _name.strip().lower())
+    read_model_translate_csv()
+    if _newname in CAMERADICT:
+        return CAMERADICT[_newname]
+    else:
+        return _newname
 
 
 def format_aperture(_tuple):
@@ -128,8 +137,21 @@ def format_exposuretime_tuple(_tuple):
     return _string
 
 
+def read_model_translate_csv():
+    """read the model translate csv - if available (only once)"""
+    if CAMERADICT:
+        # we've read the csv already
+        return
+    try:
+        with open(MODEL_TRANSLATE_CSV) as csvfile:
+            camera_model_translate = csv.reader(csvfile, delimiter=',')
+            for row in camera_model_translate:
+                CAMERADICT[row[0]] = row[1]
+    except EnvironmentError: # parent of IOError, OSError *and* WindowsError where available
+        pass
 
 if __name__ == '__main__':
+
 
     IMGDIR = "beispiele"
     # DEV ONLY: here we currently expect our example picture dir
