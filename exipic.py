@@ -53,41 +53,41 @@ def print_exif(img):
 
 def format_aperture(_tuple):
     "format aperture tuple to short printable string"
-    zaehler = _tuple[0]
-    nenner = _tuple[1]
+    numerator = _tuple[0]  # numerator = zaehler
+    divisor = _tuple[1]    # divisor = nenner
 
-    if zaehler == 0:
+    if numerator == 0:
         return NOVALUE
 
-    if zaehler % nenner == 0:
-        return zaehler
+    if numerator % divisor == 0:
+        return numerator
 
-    return str(zaehler/nenner).replace('.', DELIMITER)
+    return str(numerator/divisor).replace('.', DELIMITER)
 
 def format_focal_length_tuple(_tuple):
     """format FocalLenght tuple to short printable string
     we ignore the position after the decimal point
     because it is usually not very essential for focal length
     """
-    zaehler = _tuple[0]
-    nenner = _tuple[1]
+    numerator = _tuple[0]
+    divisor = _tuple[1]
 
-    if zaehler == 0:
+    if numerator == 0:
         return NOVALUE
 
-    if zaehler % 10 == 0 and nenner % 10 == 0:
+    if numerator % 10 == 0 and divisor % 10 == 0:
         # example: change 110/10  -> 11
-        zaehler = zaehler // 10
-        nenner = nenner // 10
+        numerator = numerator // 10
+        divisor = divisor // 10
 
-    if nenner == 1:
+    if divisor == 1:
         # example: change 8/1 to 8mm
-        _string = f"{zaehler}mm"
+        _string = f"{numerator}mm"
     else:
         # example: 524/10 -> 52mm
         # we ignore the position after the decimal point
         # because it is usually not very essential for focal length
-        _string = f"{zaehler//nenner}mm"
+        _string = f"{numerator//divisor}mm"
     return _string
 
 def format_exposuretime_tuple(_tuple):
@@ -97,20 +97,20 @@ def format_exposuretime_tuple(_tuple):
     this is a bit incorrect but short and common e.g. in cameras
     (and we want to have a short string)
     """
-    zaehler = _tuple[0]
-    nenner = _tuple[1]
-    if zaehler % 10 == 0 and nenner % 10 == 0:
+    numerator = _tuple[0]
+    divisor = _tuple[1]
+    if numerator % 10 == 0 and divisor % 10 == 0:
         # change 10/1250 to 1/125
-        zaehler = zaehler // 10
-        nenner = nenner // 10
+        numerator = numerator // 10
+        divisor = divisor // 10
 
-    if nenner == 1:
+    if divisor == 1:
         # change 6/1 -> 6s
         # fractions => 1s with s for seconds
-        _string = f"{zaehler}s"
+        _string = f"{numerator}s"
     else:
         # change 1/125 -> 125
-        _string = f"{nenner}"
+        _string = f"{divisor}"
     return _string
 
 if __name__ == '__main__':
