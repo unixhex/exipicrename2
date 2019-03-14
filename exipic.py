@@ -11,6 +11,9 @@ status: testing Pillow / early development
 """
 
 import os
+import sys
+import re
+import csv
 # PIL from Pillow
 import PIL
 import PIL.Image
@@ -20,9 +23,17 @@ import PIL.ExifTags
 # since a dot is not good in file names we use something else
 DELIMITER = '-'
 
+# camera names sometimes include spaces or komma or other characters which are
+# inadvisable for filenames. this is the replacement string if
+# such non allowed characters are found in the camera name
+SUBSTITUTE = '-'
+
 # if the lens is analog, the value for aperture or length might be zero
 # which string should be written instead?
 NOVALUE = 'x'
+
+MODEL_TRANSLATE_CSV = "camera-model-rename.csv"
+CAMERADICT={}
 
 def print_exif(img):
     """print exif data
@@ -39,17 +50,28 @@ def print_exif(img):
 
     # TODO date + time formating (YYYYmmdd-HHMMSS)
 
-    aperture = format_aperture(exif['FNumber'])
-
+    _aperture = format_aperture(exif['FNumber'])
     _exposure_time = format_exposuretime_tuple(exif['ExposureTime'])
     _focal_len = format_focal_length_tuple(exif['FocalLength'])
+    _camera = format_camera_name(exif['Model'])
 
     print(f"date: {exif['DateTimeOriginal']}\n"
-          f"camera: {exif['Model']}\n"
+          # f"camera: {exif['Model']}\n"
+          f"camera: {_camera}\n"
           f"Focal Length: {_focal_len}\n"
           f"Exposure Time: {_exposure_time}\n"
-          f"Aperture: {aperture}\n"
+          f"Aperture: {_aperture}\n"
           )
+
+def format_camera_name(_name):
+    "format camera name - substitute unwanted characters, lower case"
+    _newname=re.sub(r'[^a-zA-Z0-9]+', SUBSTITUTE, _name.strip().lower())
+    read_model_translate_csv()
+    if _newname in CAMERADICT:
+        return CAMERADICT[_newname]
+    else:
+        return _newname
+
 
 def format_aperture(_tuple):
     "format aperture tuple to short printable string"
@@ -60,9 +82,10 @@ def format_aperture(_tuple):
         return NOVALUE
 
     if numerator % divisor == 0:
-        return numerator
+        return "f" + str(numerator)
 
-    return str(numerator/divisor).replace('.', DELIMITER)
+    return "f" + str(numerator/divisor).replace('.', DELIMITER)
+
 
 def format_focal_length_tuple(_tuple):
     """format FocalLenght tuple to short printable string
@@ -113,7 +136,22 @@ def format_exposuretime_tuple(_tuple):
         _string = f"{divisor}"
     return _string
 
+
+def read_model_translate_csv():
+    """read the model translate csv - if available (only once)"""
+    if CAMERADICT:
+        # we've read the csv already
+        return
+    try:
+        with open(MODEL_TRANSLATE_CSV) as csvfile:
+            camera_model_translate = csv.reader(csvfile, delimiter=',')
+            for row in camera_model_translate:
+                CAMERADICT[row[0]] = row[1]
+    except EnvironmentError: # parent of IOError, OSError *and* WindowsError where available
+        pass
+
 if __name__ == '__main__':
+
 
     IMGDIR = "beispiele"
     # DEV ONLY: here we currently expect our example picture dir
@@ -125,3 +163,5 @@ if __name__ == '__main__':
         print(30*"-")
         print(bildname)
         print_exif(bild)
+
+# *** THE END ***
