@@ -24,6 +24,12 @@ import PIL
 import PIL.Image
 import PIL.ExifTags
 
+try:
+    from pysize import get_size as getmemsize #FIXME just for debugging
+    # pysize from https://github.com/bosswissam/pysize
+except:
+    pass    
+
 # which symbol should be used instead of the decimal delimiter '.' e.g. for aperture (blende)
 # since a dot is not good in file names we use something else
 DELIMITER = '-'
@@ -132,7 +138,7 @@ def format_aperture(_tuple):
         return NOVALUE
 
     if numerator % divisor == 0:
-        return "f" + str(numerator)
+        return "f" + str(numerator//divisor)
 
     return "f" + str(numerator/divisor).replace('.', DELIMITER)
 
@@ -235,13 +241,12 @@ if __name__ == '__main__':
             continue
 
         try:
-            picture = PIL.Image.open(orig_picturepath)
+            with PIL.Image.open(orig_picturepath) as picture:
+                timestamp, new_picturepath = create_new_filename(picture)
+
         except OSError:
             print(f"{orig_picturepath} can't be opened as image") # TODO VERBOSE
             continue
-
-        timestamp, new_picturepath = create_new_filename(picture)
-        picture.close()
 
         if new_picturepath:
             duplicate = 0
@@ -401,13 +406,20 @@ if __name__ == '__main__':
                     files_to_rename.append(
                         (f'{extrafile}', f'{orig_dirname}/{new_basename}{extension.lower()}'))
 
-            elif extension in JPG_ORIG_EXTENSIONS:
-                print (f"{SERIAL} - {extrafile}")
-                # check if this jpg with the same basename is in our main list
-
-
+            else:
             # TODO FIXME: other assocciated files might be claimed by more than one jpg
             # if duplicate > 0, this should not be announced
+                printme=True 
+                for knownfile,_ in files_to_rename:
+                    if extrafile == knownfile:
+                        print ("HAB ICH DOCH SCHON")
+                        printme=False
+
+                if printme:
+                    _, extension = splitext_all(extrafile)
+                    files_to_rename.append(
+                        (f'{extrafile}', f'{orig_dirname}/{new_basename}.{extension.lower()}'))
+                
 
 
 
@@ -418,6 +430,10 @@ if __name__ == '__main__':
 
 debug_print_rename_list()
 
-
+# don't forget how much mem is used - while developing
+if "getmemsize" in dir():
+    print("sizes of objects in byte:")
+    print(f"Tuple-List ALL_FILES TO RENAME: {getmemsize(ALL_FILES_TO_RENAME)}")
+    print(f"Dictionary PICDICT:             {getmemsize(PICDICT)}")
 
 # *** THE END ***
