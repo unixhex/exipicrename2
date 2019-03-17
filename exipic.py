@@ -208,21 +208,6 @@ def splitext_all(_filename):
     _name, _extensions = _filename.split('.')[0], '.'.join(_filename.split('.')[1:])
     return(_name, "."+ _extensions)
 
-def debug_print_rename_list():
-    """DEBUG print tuples which will be the input for the big renaming"""
-    #for file_tuple in ALL_FILES_TO_RENAME:
-    #    print("old:" + file_tuple[0])
-    #    print("NEW:" + file_tuple[1])
-    for k in PIC_DICT:
-        print("alt -- {} --- ".format(PIC_DICT[k]["orig_filepath"]))
-        print("NEU ++ {}/{}{} +++ ".format(
-            PIC_DICT[k]["new_dirname"],
-            PIC_DICT[k]["new_basename"],
-            PIC_DICT[k]["new_extension"],
-            ))
-        #print (f'alt --- {_dic["orig_filepath"]} ---')
-        #print (f"NEU +++ {_dic['new_basename']} +++")
-
 
 def picdict_set_serial_once(_pic, _serial, _serial_length):
     """set serial number in a global PIC_DICT dictionary entry (if not set yet or if empty)"""
@@ -248,6 +233,30 @@ def picdict_has_orig_filepath(filepath):
         except KeyError:
             pass
         return False
+
+
+def rename_files():
+    """rename files (after check if we don't overwrite)"""
+    for k in sorted(PIC_DICT):
+        oldname = PIC_DICT[k]["orig_filepath"]
+        newname = "{}/{}{}".format(
+            PIC_DICT[k]["new_dirname"],
+            PIC_DICT[k]["new_basename"],
+            PIC_DICT[k]["new_extension"],
+            )
+
+        if not os.path.isfile(oldname):
+            print(f"WARNING: orig file not available any more: {oldname}")
+            continue
+        if os.path.isfile(newname):
+            print(f"WARNING: don't want to overwrite existing file\n   {newname}\n    (keep {oldname}")
+            continue
+            sys.exit()  # pylint: disable=unreachable
+            # we really really don't want to overwrite files
+
+        # RENAMING GOES HERE
+        print(f"alt -- {oldname} --- ")
+        print(f"NEU ++ {newname} +++ ")
 
 
 if __name__ == '__main__':
@@ -294,12 +303,11 @@ if __name__ == '__main__':
                 'orig_filepath': orig_filepath,
                 'new_basename': new_picturepath,
                 'ctime' : ctime,
-                'do_rename' : False,
                 }
 
 
     # PART 2 - analyse what jpg files we've got and find accociate files
-    PICLIST = list(PIC_DICT.keys())
+    PICLIST = sorted(PIC_DICT)
 
     # how long is my list? Is SERIAL_LENGTH long enough (do I have enough digits)?
     SERIAL_MIN_LENGTH = (len(str(len(PICLIST))))
@@ -312,10 +320,6 @@ if __name__ == '__main__':
     if SERIAL_MIN_LENGTH > SERIAL_LENGTH:
         SERIAL_LENGTH = SERIAL_MIN_LENGTH
 
-    # PICLIST contains timestamp + duplicate integer,
-    # sort it, we want to have our serials in correct sequence
-    PICLIST.sort()
-
     # SERIAL NUMBER included into the new picture name
     SERIAL = 0
 
@@ -325,22 +329,15 @@ if __name__ == '__main__':
         files_to_rename = [] # a list of filename tuples (old,new)
         SERIAL += 1
 
-
 ### PIC_DICT
 ###picdictkey - timestamp+duplicatecounter + optional qualifier _raw or _extrafilenumber
 ###  timestamp  <- on init
 ###  duplicate  <- on init
-###  pictdictkey | for extrafiles
-###  orig_filepath <- on init (name with path and extension)
-###  new_filepath <- on init (name with path, extension and template {} for serial)
+#>>  orig_filepath <- on init (name with path and extension)
+#>>  new_basename <- on init, with template {} for serial
+#>>  new_extension
+#>>  new_dirname
 ###  serial
-###  orig_basename   .
-###  orig_all_extensions  .
-###  orig_dirname .
-###  new_basename .
-###  new_dirname (if requested)
-###  do_rename (bool)
-
 
         orig_full_name = PIC_DICT[pic]['orig_filepath']
         date = PIC_DICT[pic]['timestamp']
@@ -354,28 +351,17 @@ if __name__ == '__main__':
 
 
         picdict_set_serial_once(pic, SERIAL, SERIAL_LENGTH)
-        #new_basename = PIC_DICT[pic]['new_basename'].format(str(SERIAL).zfill(SERIAL_LENGTH))
-        #PIC_DICT[pic]['serial'] = SERIAL
 
         orig_dirname, origfilename = os.path.split(orig_full_name)
         orig_basename, orig_all_extensions = splitext_all(origfilename)
         new_dirname = orig_dirname # TODO - optional datedir
 
-        PIC_DICT[pic]['orig_dirname'] = orig_dirname
         PIC_DICT[pic]['new_dirname'] = new_dirname
-        PIC_DICT[pic]['orig_basename'] = orig_basename
-        PIC_DICT[pic]['orig_all_extensions'] = orig_all_extensions
 
-        #if not duplicate:
-        #    PIC_DICT[pic]['new_basename'] = new_basename
-        #else:
         if duplicate:
-            #PIC_DICT[pic]['new_basename'] = new_basename + f'_{duplicate}'
             PIC_DICT[pic]['new_basename'] = PIC_DICT[pic]['new_basename'] + f'_{duplicate}'
 
         PIC_DICT[pic]['new_extension'] = JPG_EXTENSION
-
-        PIC_DICT[pic]['do_rename'] = True
 
         ## and now to the "extra" files which are accociated because of same basename
 
@@ -384,7 +370,6 @@ if __name__ == '__main__':
             if extrafile == orig_full_name:
                 continue # next file
 
-            # print(">>", extrafile)  # TODO DEBUG
             # raw
             _, extension = splitext_last(extrafile)
             if extension in RAW_EXTENSIONS:
@@ -396,7 +381,6 @@ if __name__ == '__main__':
                         continue
 
                     # ok, we did look, nobody has this file so we keep it ...
-                    #PIC_DICT[extra]['new_basename'] = new_basename + f'_{duplicate}'
 
                 PIC_DICT[extra] = {
                     'orig_filepath' : extrafile,
@@ -430,12 +414,12 @@ if __name__ == '__main__':
 
         #ALL_FILES_TO_RENAME.extend(files_to_rename)
 
-debug_print_rename_list()
+rename_files()
 
 # don't forget how much mem is used - while developing
 if "getmemsize" in dir():
     print("sizes of objects in byte:")
-    print(f"Number of shots (max serial no. {SERIAL}")
+    print(f"Number of shots (max serial no.) {SERIAL}")
     print(f"Dictionary PIC_DICT entries:     {len(PIC_DICT)}")
     print(f"Dictionary PIC_DICT:             {getmemsize(PIC_DICT)}")
     print(f"List PICLIST:                    {getmemsize(PICLIST)}")
