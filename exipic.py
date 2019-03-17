@@ -18,7 +18,6 @@ import re
 import csv
 import time
 import glob
-from collections import defaultdict
 # PIL from Pillow
 import PIL
 import PIL.Image
@@ -27,8 +26,8 @@ import PIL.ExifTags
 try:
     from pysize import get_size as getmemsize #FIXME just for debugging
     # pysize from https://github.com/bosswissam/pysize
-except:
-    pass    
+except ModuleNotFoundError:
+    pass
 
 # which symbol should be used instead of the decimal delimiter '.' e.g. for aperture (blende)
 # since a dot is not good in file names we use something else
@@ -49,17 +48,16 @@ SERIAL_LENGTH = 3
 
 MODEL_TRANSLATE_CSV = "camera-model-rename.csv"
 CAMERADICT = {}
-PICDICT = {}
+PIC_DICT = {}
 
-PICDICT2 = defaultdict(list)
 
-ALL_FILES_TO_RENAME = []
+#ALL_FILES_TO_RENAME = []
 
 # this extensions we read as JPEG
 JPG_ORIG_EXTENSIONS = ('.jpg', '.JPG', '.jpeg', '.JPEG')
 
 # this extension we use as output JPEG extension
-JPG_EXTENSION='.jpg'
+JPG_EXTENSION = '.jpg'
 
 
 # source https://fileinfo.com/filetypes/camera_raw
@@ -106,17 +104,7 @@ def create_new_filename(img):
     _datetime = format_time(exif['DateTimeOriginal'])
     _iso = (exif['ISOSpeedRatings'])
 
-#    print(f"date+time: {_datetime}\n"
-#          f"camera: {_camera}\n"
-#          f"Focal Length: {_focal_len}\n"
-#          f"Exposure Time: {_exposure_time}\n"
-#          f"Aperture: {_aperture}\n"
-#          f"ISO: {_iso}\n"
-#          )
-
-    #print(f"{_datetime}__000__{_camera}__{_focal_len}__{_aperture}__iso{_iso}.jpg")
     return _datetime, (f"{_datetime}__{{}}__{_camera}__{_focal_len}__{_aperture}__iso{_iso}")
-    #return True
 
 def format_camera_name(_name):
     """format camera name - substitute unwanted characters, lower case
@@ -218,86 +206,108 @@ def splitext_all(_filename):
     should work similar to os.path.splitext (but that splits only the last extension)
     """
     _name, _extensions = _filename.split('.')[0], '.'.join(_filename.split('.')[1:])
-    return(_name, _extensions)
+    return(_name, "."+ _extensions)
 
-def debug_print_rename_list():
-    """DEBUG print tuples which will be the input for the big renaming"""
-    for file_tuple in ALL_FILES_TO_RENAME:
-        print("old:" + file_tuple[0])
-        print("NEW:" + file_tuple[1])
+
+def picdict_set_serial_once(_pic, _serial, _serial_length):
+    """set serial number in a global PIC_DICT dictionary entry (if not set yet or if empty)"""
+    # make a string out of "SERIAL", fill it up with 0 up to SERIAL_LENGTH
+    # include it into the new file base name
+    try:
+        _ = PIC_DICT[_pic]['serial']
+        return False
+    except KeyError:
+        pass
+
+    PIC_DICT[_pic]['serial'] = _serial
+    PIC_DICT[_pic]['new_basename'] = \
+        PIC_DICT[_pic]['new_basename'].format(str(_serial).zfill(_serial_length))
+    return True
+
+def picdict_has_orig_filepath(filepath):
+    """search if this filename is already recorded in global PIC_DICT"""
+    for filerecord in PIC_DICT.values():
+        try:
+            if filerecord['orig_filename'] == filepath:
+                return True
+        except KeyError:
+            pass
+        return False
+
+
+def rename_files():
+    """rename files (after check if we don't overwrite)"""
+    for k in sorted(PIC_DICT):
+        oldname = PIC_DICT[k]["orig_filepath"]
+        newname = "{}/{}{}".format(
+            PIC_DICT[k]["new_dirname"],
+            PIC_DICT[k]["new_basename"],
+            PIC_DICT[k]["new_extension"],
+            )
+
+        if not os.path.isfile(oldname):
+            print(f"WARNING: orig file not available any more: {oldname}")
+            continue
+        if os.path.isfile(newname):
+            print(f"WARNING: don't want to overwrite existing file\n   {newname}\n    (keep {oldname}")
+            continue
+            sys.exit()  # pylint: disable=unreachable
+            # we really really don't want to overwrite files
+
+        # RENAMING GOES HERE
+        print(f"alt -- {oldname} --- ")
+        print(f"NEU ++ {newname} +++ ")
 
 
 if __name__ == '__main__':
 
     # PART 1 - READ filenames and put them in a dictionary
     # read file-path(s) from STDIN
-    for orig_picturepath in sys.argv[1:]:
+    for orig_filepath in sys.argv[1:]:
 
         # ensure we only fetch jpg and jpeg and JPG and JPEG ...
-        #basename_and_path, extension = os.path.splitext(orig_picturepath)
-        basename_and_path, extension = splitext_last(orig_picturepath)
+        #basename_and_path, extension = os.path.splitext(orig_filepath)
+        basename_and_path, extension = splitext_last(orig_filepath)
         if not extension in JPG_ORIG_EXTENSIONS:
-            #print(f"{orig_picturepath} has the wrong extension for a JPG picture") # TODO VERBOSE
+            #print(f"{orig_filepath} has the wrong extension for a JPG picture") # TODO VERBOSE
             continue
 
         try:
-            with PIL.Image.open(orig_picturepath) as picture:
+            with PIL.Image.open(orig_filepath) as picture:
                 timestamp, new_picturepath = create_new_filename(picture)
 
         except OSError:
-            print(f"{orig_picturepath} can't be opened as image") # TODO VERBOSE
+            print(f"{orig_filepath} can't be opened as image") # TODO VERBOSE
             continue
 
         if new_picturepath:
             duplicate = 0
             # There might be other jpg arround with the same timestamp
             # these might be either:
-            # * serial shots (same camera same second) or 
+            # * serial shots (same camera same second) or
             # * parallel shots (other camera, same second)
             # * same camera after a clock reset
             # so we NEED to check first if this date is already claimed by an other shot
             # and save both (the second gets a number > 0 in duplicate
 
-            while (f"{timestamp}_{duplicate}" in PICDICT.keys()):
-                #print(f"{timestamp}_{duplicate} ##################") # TODO VERBOSE
+            while f"{timestamp}_{duplicate}" in PIC_DICT.keys():
                 duplicate += 1
-           
+
             # last changed time of that file to see for serial pictures which is the newest
-            ctime=str(os.path.getctime(orig_picturepath))
-            mtime=str(os.path.getmtime(orig_picturepath))
+            ctime = str(os.path.getctime(orig_filepath))
+            mtime = str(os.path.getmtime(orig_filepath))
 
-            #print(f"{timestamp}_{duplicate} #<<<<<<<<<<<<<<<<<<<<####") # TODO VERBOSE
-            PICDICT[f"{timestamp}_{duplicate}"] = {
-                        'timestamp': timestamp, 
-                        'duplicate': duplicate,
-                        'orig_picturepath': orig_picturepath,
-                        'new_picturepath_no_serial': new_picturepath,
-                        'ctime' : ctime,
-                        'do_rename' : False,
-                        }
-###            PICDICT2[timestamp].append({
-###                        'timestamp': timestamp, 
-###                        #'duplicate': duplicate,
-###                        'orig_picturepath': orig_picturepath,
-###                        #'new_picturepath_no_serial': new_picturepath,
-###                        'ctime' : ctime,
-###                        'mtime' : mtime,
-###                        #'do_rename' : False,
-###                       })
-
-###    print (PICDICT)
-###    print (PICDICT2)
-###    print ("-------------")
-###    for key in PICDICT2.keys():
-###        print (key)
-###        print (len(PICDICT2[key]))
-###        for Z in PICDICT2[key]:
-###            print(Z)
-###        print ("...")
+            PIC_DICT[f"{timestamp}_{duplicate}"] = {
+                'timestamp': timestamp,
+                'duplicate': duplicate,
+                'orig_filepath': orig_filepath,
+                'new_basename': new_picturepath,
+                'ctime' : ctime,
+                }
 
 
     # PART 2 - analyse what jpg files we've got and find accociate files
-    PICLIST = list(PICDICT.keys())
+    PICLIST = sorted(PIC_DICT)
 
     # how long is my list? Is SERIAL_LENGTH long enough (do I have enough digits)?
     SERIAL_MIN_LENGTH = (len(str(len(PICLIST))))
@@ -310,10 +320,6 @@ if __name__ == '__main__':
     if SERIAL_MIN_LENGTH > SERIAL_LENGTH:
         SERIAL_LENGTH = SERIAL_MIN_LENGTH
 
-    # PICLIST contains timestamp + duplicate integer,
-    # sort it, we want to have our serials in correct sequence
-    PICLIST.sort()
-
     # SERIAL NUMBER included into the new picture name
     SERIAL = 0
 
@@ -322,27 +328,20 @@ if __name__ == '__main__':
 
         files_to_rename = [] # a list of filename tuples (old,new)
         SERIAL += 1
-###PICDICT
-###picdictkey - timestamp+duplicatecounter
+
+### PIC_DICT
+###picdictkey - timestamp+duplicatecounter + optional qualifier _raw or _extrafilenumber
 ###  timestamp  <- on init
 ###  duplicate  <- on init
-###  orig_picturepath <- on init (name with path and extension)
-###  new_picturepath_no_serial <- on init (name with path, extension and template {} for serial)
+#>>  orig_filepath <- on init (name with path and extension)
+#>>  new_basename <- on init, with template {} for serial
+#>>  new_extension
+#>>  new_dirname
 ###  serial
-###  origbasename   . 
-###  origallextensions  . 
-###  orig_dirname .
-###  orig_rawpath
-###  new_basename .
-###  newextension -> jpg    # DO I NEED THIS or is it enough to have as constant?
-###  newdir (if requested)
-###  newrawname
-###  associated_list list of set (origassociated files|newassociated files)
-###  do_rename (bool)
 
-        origname = PICDICT[pic]['orig_picturepath']
-        date = PICDICT[pic]['timestamp']
-        duplicate = PICDICT[pic]['duplicate']
+        orig_full_name = PIC_DICT[pic]['orig_filepath']
+        date = PIC_DICT[pic]['timestamp']
+        duplicate = PIC_DICT[pic]['duplicate']
 
         # TODO BETTER DUBLICATE HANDLING
         # -> oldest file (mtime) should win "original without marker status"
@@ -350,90 +349,79 @@ if __name__ == '__main__':
         # -> real duplicates could be marked with a "DUPLICATE" string
         # FIXME: current status is first come first serve
 
-        # make a string out of "SERIAL", fill it up with 0 up to SERIAL_LENGTH
-        # include it into the new file base name
-        new_basename = PICDICT[pic]['new_picturepath_no_serial'].format(str(SERIAL).zfill(SERIAL_LENGTH))
 
-        orig_dirname, origfilename = os.path.split(origname)
-        origbasename, origallextensions = splitext_all(origfilename)
+        picdict_set_serial_once(pic, SERIAL, SERIAL_LENGTH)
 
-        PICDICT[pic]['orig_dirname'] = orig_dirname
-        PICDICT[pic]['origbasename'] = origbasename
-        PICDICT[pic]['origallextensions'] = origallextensions
-        PICDICT[pic]['serial'] = SERIAL
-        ### PICDICT[pic]['newextension'] = JPG_EXTENSION
+        orig_dirname, origfilename = os.path.split(orig_full_name)
+        orig_basename, orig_all_extensions = splitext_all(origfilename)
+        new_dirname = orig_dirname # TODO - optional datedir
 
-        if not duplicate:
-            PICDICT[pic]['new_basename'] = new_basename + JPG_EXTENSION
-        else:
-            PICDICT[pic]['new_basename'] = new_basename + f'_{duplicate}' + JPG_EXTENSION
+        PIC_DICT[pic]['new_dirname'] = new_dirname
 
-        # FIXME: REMOVE 
-        files_to_rename.append(
-            (f'{origname}', f'{orig_dirname}/{new_basename}.{origallextensions.lower()}'))
+        if duplicate:
+            PIC_DICT[pic]['new_basename'] = PIC_DICT[pic]['new_basename'] + f'_{duplicate}'
 
-        # identify associated raw and xml files
-        for extrafile in glob.glob(f'{orig_dirname}/{origbasename}*'):
-            if extrafile == origname:
-                continue
-            # print(">>", extrafile)  # TODO DEBUG
+        PIC_DICT[pic]['new_extension'] = JPG_EXTENSION
+
+        ## and now to the "extra" files which are accociated because of same basename
+
+        extracounter = 0
+        for extrafile in glob.glob(f'{orig_dirname}/{orig_basename}*'):
+            if extrafile == orig_full_name:
+                continue # next file
+
             # raw
             _, extension = splitext_last(extrafile)
             if extension in RAW_EXTENSIONS:
+                extra = f"{pic}_raw"
                 if duplicate:
-                    first_timestamp = timestamp + "_0"
-                    # check if the first file already claimed this raw file
-                    print (f"""
-                    # {PICDICT[pic]['orig_picturepath']} ####
-                    # {PICDICT[pic]['ctime']} ####
-                    = {pic} {duplicate}
-                    a {extrafile}
-                    """)
-                    try:
-                        if extrafile == PICDICT[f'{timestamp}_0']['orig_rawpath']:
-                            print(f"DOUBLE READ: {extrafile} ~~~~~~~~~")
-                            #sys.exit()
-                    except KeyError:
-                        pass
-                else:
-                    PICDICT[pic]['orig_rawpath'] = extrafile
-                    print (f"""
-                    * {PICDICT[pic]['orig_picturepath']} ****
-                    * {PICDICT[pic]['ctime']} ****
-                    = {pic} {duplicate}
-                    a {extrafile}
-                    """)
-                    files_to_rename.append(
-                        (f'{extrafile}', f'{orig_dirname}/{new_basename}{extension.lower()}'))
+                    # check if the first jpg (or a following) file
+                    # already "claimed" this raw file
+                    if picdict_has_orig_filepath(extrafile):
+                        continue
 
-            else:
-            # TODO FIXME: other assocciated files might be claimed by more than one jpg
-            # if duplicate > 0, this should not be announced
-                printme=True 
-                for knownfile,_ in files_to_rename:
-                    if extrafile == knownfile:
-                        print ("HAB ICH DOCH SCHON")
-                        printme=False
+                    # ok, we did look, nobody has this file so we keep it ...
 
-                if printme:
+                PIC_DICT[extra] = {
+                    'orig_filepath' : extrafile,
+                    'new_dirname' : new_dirname,
+                    'new_extension' : extension.lower(),
+                    'new_basename' : PIC_DICT[pic]['new_basename']
+                    }
+
+
+            else: # if not raw
+                rename_me = True
+                if picdict_has_orig_filepath(extrafile):
+                    print("HAB ICH DOCH SCHON")
+                    rename_me = False
+                    continue
+
+                extra = f"{pic}_{extracounter}"
+                if rename_me:
                     _, extension = splitext_all(extrafile)
-                    files_to_rename.append(
-                        (f'{extrafile}', f'{orig_dirname}/{new_basename}.{extension.lower()}'))
-                
+                    PIC_DICT[extra] = {
+                        'orig_filepath' : extrafile,
+                        'new_dirname' : new_dirname,
+                        'new_extension' : extension.lower(),
+                        'new_basename' : PIC_DICT[pic]['new_basename']
+                        }
 
+                    extracounter += 1
 
-
-        # TODO check if target name already given
+        # TODO check if target file already at filesystem
         # TODO rename
 
-        ALL_FILES_TO_RENAME.extend(files_to_rename)
+        #ALL_FILES_TO_RENAME.extend(files_to_rename)
 
-debug_print_rename_list()
+rename_files()
 
 # don't forget how much mem is used - while developing
 if "getmemsize" in dir():
     print("sizes of objects in byte:")
-    print(f"Tuple-List ALL_FILES TO RENAME: {getmemsize(ALL_FILES_TO_RENAME)}")
-    print(f"Dictionary PICDICT:             {getmemsize(PICDICT)}")
+    print(f"Number of shots (max serial no.) {SERIAL}")
+    print(f"Dictionary PIC_DICT entries:     {len(PIC_DICT)}")
+    print(f"Dictionary PIC_DICT:             {getmemsize(PIC_DICT)}")
+    print(f"List PICLIST:                    {getmemsize(PICLIST)}")
 
 # *** THE END ***
