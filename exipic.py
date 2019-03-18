@@ -247,6 +247,9 @@ def rename_files():
             PIC_DICT[k]["new_extension"],
             )
 
+        if oldname == newname:
+            continue
+
         if not os.path.isfile(oldname):
             print(f"WARNING: orig file not available any more: {oldname}", file=sys.stderr)
             continue
