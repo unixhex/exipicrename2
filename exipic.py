@@ -251,9 +251,9 @@ def rename_files():
             print(f"WARNING: orig file not available any more: {oldname}", file=sys.stderr)
             continue
         if os.path.isfile(newname):
-            print(f"WARNING: don't want to overwrite existing file"
-                   "   {newname}"
-                   "(keep {oldname}", file=sys.stderr)
+            print(f"WARNING: did not overwrite existing file\n"
+                  f"\t{newname}\n\twith:\n"
+                  f"\t{oldname}", file=sys.stderr)
             continue
             sys.exit()  # pylint: disable=unreachable
             # we really really don't want to overwrite files
