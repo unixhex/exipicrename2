@@ -92,7 +92,7 @@ def create_new_filename(img):
             if k in PIL.ExifTags.TAGS
         }
     except AttributeError:
-        print('NO exif info in ' + img.filename) #FIXME DEBUG
+        print('NO exif info in ' + img.filename, file=sys.stderr) #FIXME DEBUG
         return None, None
 
     try:
@@ -103,7 +103,7 @@ def create_new_filename(img):
         _camera = format_camera_name(exif['Model'])
         _iso = (exif['ISOSpeedRatings'])
     except KeyError:
-        print('(Some) exif tags missing in ' + img.filename) #FIXME DEBUG
+        print('(Some) exif tags missing in ' + img.filename, file=sys.stderr) #FIXME DEBUG
         return None,None
 
     return _datetime, (f"{_datetime}__{{}}__{_camera}__{_focal_len}__{_aperture}__iso{_iso}")
@@ -248,10 +248,12 @@ def rename_files():
             )
 
         if not os.path.isfile(oldname):
-            print(f"WARNING: orig file not available any more: {oldname}")
+            print(f"WARNING: orig file not available any more: {oldname}", file=sys.stderr)
             continue
         if os.path.isfile(newname):
-            print(f"WARNING: don't want to overwrite existing file\n   {newname}\n    (keep {oldname}")
+            print(f"WARNING: don't want to overwrite existing file"
+                   "   {newname}"
+                   "(keep {oldname}", file=sys.stderr)
             continue
             sys.exit()  # pylint: disable=unreachable
             # we really really don't want to overwrite files
@@ -279,7 +281,7 @@ if __name__ == '__main__':
                 timestamp, new_picturepath = create_new_filename(picture)
 
         except OSError:
-            print(f"{orig_filepath} can't be opened as image") # TODO VERBOSE
+            print(f"{orig_filepath} can't be opened as image", file=sys.stderr) # TODO VERBOSE
             continue
 
         if new_picturepath:
@@ -395,8 +397,7 @@ if __name__ == '__main__':
             else: # if not raw
                 rename_me = True
                 if picdict_has_orig_filepath(extrafile):
-                    print("HAB ICH DOCH SCHON")
-                    rename_me = False
+                    rename_me = False   # FIXME ? neccessary?
                     continue
 
                 extra = f"{pic}_{extracounter}"
