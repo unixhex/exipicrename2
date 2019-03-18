@@ -265,6 +265,8 @@ def rename_files():
         print(f"alt -- {oldname} --- ")
         print(f"NEU ++ {newname} +++ ")
 
+        os.rename(oldname,newname)
+
 
 if __name__ == '__main__':
 
