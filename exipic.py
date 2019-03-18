@@ -92,17 +92,19 @@ def create_new_filename(img):
             if k in PIL.ExifTags.TAGS
         }
     except AttributeError:
-        #print (f"image has no exif tags")
+        print('NO exif info in ' + img.filename) #FIXME DEBUG
         return None, None
 
-    # TODO better exception handling if exif-values are missing
-
-    _aperture = format_aperture(exif['FNumber'])
-    _exposure_time = format_exposuretime_tuple(exif['ExposureTime'])
-    _focal_len = format_focal_length_tuple(exif['FocalLength'])
-    _camera = format_camera_name(exif['Model'])
-    _datetime = format_time(exif['DateTimeOriginal'])
-    _iso = (exif['ISOSpeedRatings'])
+    try:
+        _datetime = format_time(exif['DateTimeOriginal'])
+        _aperture = format_aperture(exif['FNumber'])
+        _exposure_time = format_exposuretime_tuple(exif['ExposureTime'])
+        _focal_len = format_focal_length_tuple(exif['FocalLength'])
+        _camera = format_camera_name(exif['Model'])
+        _iso = (exif['ISOSpeedRatings'])
+    except KeyError:
+        print('(Some) exif tags missing in ' + img.filename) #FIXME DEBUG
+        return None,None
 
     return _datetime, (f"{_datetime}__{{}}__{_camera}__{_focal_len}__{_aperture}__iso{_iso}")
 
