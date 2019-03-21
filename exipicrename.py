@@ -1,15 +1,35 @@
 #!/usr/bin/env python3
 """
 exipicrename
+early beta  of python3 version
 
-reads exif data from pictures
-(and later on renames these pictures)
+reads exif data from pictures and rename them
 
-version 2 - except bash with exiftool now with python3 and pillow
+used exif tags are:
+* DateTimeOriginal
+* DateTimeOriginal
+* FNumber
+* ExposureTime
+* FocalLength
+* Model
+* ISOSpeedRatings
 
-status: testing Pillow / early development
+usage:
+exipicrename {options} [files]
+
+options:
+-v or --verbose   print some info while working
+-q or --quite     as silent as possible
+-h or --help      print this help
+-d or --datedir   write the files in a YYYY-mm-dd directory
+-s or --simulate  don't rename (use with --verbose to see what would happen
+-o or --ooc       all matching JPG files get the extension .ooc.jpg (out of cam)
+
 """
-# pylint: disable=W0511    # don't warn for TODO , I know it is not finished, yet
+
+# Copyright (c) 2019 Hella Breitkopf, https://www.unixwitch.de
+# MIT License -> see LICENSE file
+
 
 import os
 from os.path import splitext as splitext_last
@@ -24,7 +44,7 @@ import PIL.Image
 import PIL.ExifTags
 
 try:
-    from pysize import get_size as getmemsize #FIXME just for debugging
+    from pysize import get_size as getmemsize #just for debugging
     # pysize from https://github.com/bosswissam/pysize
 except ModuleNotFoundError:
     pass
@@ -35,7 +55,7 @@ DELIMITER = '-'
 
 # camera names sometimes include spaces or komma or other characters which are
 # inadvisable for filenames. this is the replacement string if
-# such non allowed characters are found in the camera name
+# such non-allowed characters are found in the camera name
 SUBSTITUTE = '-'
 
 # if the lens is analog, the value for aperture or length might be zero
@@ -47,11 +67,16 @@ NOVALUE = 'x'
 SERIAL_LENGTH = 3
 
 MODEL_TRANSLATE_CSV = "camera-model-rename.csv"
+
 CAMERADICT = {}
 PIC_DICT = {}
 
-
-#ALL_FILES_TO_RENAME = []
+__FILELIST = []
+__MAKEDATEDIR = False
+__VERBOSE = False
+__SIMULATE = False
+__OOC = False
+__DATEDIR = ''
 
 # this extensions we read as JPEG
 JPG_ORIG_EXTENSIONS = ('.jpg', '.JPG', '.jpeg', '.JPEG')
@@ -82,7 +107,7 @@ RAW_EXTENSIONS = (
 
 
 
-def create_new_filename(img):
+def create_new_basename(img):
     """create a new filename based on exif data"""
     # fetch tagging from https://stackoverflow.com/a/4765242
     try:
@@ -92,21 +117,26 @@ def create_new_filename(img):
             if k in PIL.ExifTags.TAGS
         }
     except AttributeError:
-        print('NO exif info in ' + img.filename, file=sys.stderr) #FIXME DEBUG
-        return None, None
+        if __VERBOSE:
+            print('NO exif info in ' + img.filename, file=sys.stderr)
+        return None, None, None
 
     try:
-        _datetime = format_time(exif['DateTimeOriginal'])
+        _datetime = format_datetime(exif['DateTimeOriginal'])
+        _date = format_date(exif['DateTimeOriginal'])
         _aperture = format_aperture(exif['FNumber'])
         _exposure_time = format_exposuretime_tuple(exif['ExposureTime'])
         _focal_len = format_focal_length_tuple(exif['FocalLength'])
         _camera = format_camera_name(exif['Model'])
         _iso = (exif['ISOSpeedRatings'])
     except KeyError:
-        print('(Some) exif tags missing in ' + img.filename, file=sys.stderr) #FIXME DEBUG
-        return None,None
+        if __VERBOSE:
+            print('(Some) exif tags missing in ' + img.filename, file=sys.stderr)
+        return None, None, None
 
-    return _datetime, (f"{_datetime}__{{}}__{_camera}__{_focal_len}__{_aperture}__iso{_iso}")
+    return _datetime, \
+           (f"{_datetime}__{{}}__{_camera}__{_focal_len}__{_aperture}__iso{_iso}"), \
+           _date
 
 def format_camera_name(_name):
     """format camera name - substitute unwanted characters, lower case
@@ -184,10 +214,15 @@ def format_exposuretime_tuple(_tuple):
     return _string
 
 
-def format_time(_datetime):
-    """format time string"""
+def format_datetime(_datetime):
+    """format time string -> YYYYmmdd_HHMMSS"""
     _time_struct = time.strptime(_datetime, "%Y:%m:%d %H:%M:%S")
     return time.strftime("%Y%m%d_%H%M%S", _time_struct)
+
+def format_date(_datetime):
+    """format time string -> YYYY-mm-dd"""
+    _time_struct = time.strptime(_datetime, "%Y:%m:%d %H:%M:%S")
+    return time.strftime("%Y-%m-%d", _time_struct)
 
 
 def read_model_translate_csv():
@@ -240,7 +275,12 @@ def picdict_has_orig_filepath(filepath):
 def rename_files():
     """rename files (after check if we don't overwrite)"""
     for k in sorted(PIC_DICT):
-        oldname = PIC_DICT[k]["orig_filepath"]
+
+        oldname = "{}/{}{}".format(
+            PIC_DICT[k]["orig_dirname"],
+            PIC_DICT[k]["orig_basename"],
+            PIC_DICT[k]["orig_extension"],
+            )
         newname = "{}/{}{}".format(
             PIC_DICT[k]["new_dirname"],
             PIC_DICT[k]["new_basename"],
@@ -251,7 +291,9 @@ def rename_files():
             continue
 
         if not os.path.isfile(oldname):
-            print(f"WARNING: orig file not available any more: {oldname}", file=sys.stderr)
+            print(f"WARNING: want to rename {oldname}\n"
+                  f"                     to {newname}\n"
+                  f"         but orig file not available any more", file=sys.stderr)
             continue
         if os.path.isfile(newname):
             print(f"WARNING: did not overwrite existing file\n"
@@ -261,35 +303,90 @@ def rename_files():
             sys.exit()  # pylint: disable=unreachable
             # we really really don't want to overwrite files
 
-        # RENAMING GOES HERE
-        print(f"alt -- {oldname} --- ")
-        print(f"NEU ++ {newname} +++ ")
+        if __VERBOSE:
+            msg = ""
+            if __SIMULATE:
+                msg = "(SIMULATION MODE)"
+            print(f"old filename: <-- {oldname} <-- {msg}")
+            print(f"new filename: --> {newname} --> ")
 
-        os.rename(oldname,newname)
+        if not __SIMULATE:
+            os.rename(oldname, newname)
 
+def print_help():
+    "help function"
+    print(__doc__)
+    sys.exit()
+
+def __read_args(*args):
+    "read and interpret commandline arguments"
+
+    # I know, globals are not fine. but everything
+    # else suggested e.g. in https://docs.python.org/3.7/faq/programming.html
+    # is in this case more complex, less clear, much more complicate to handle
+    # and more error prone (I am open to suggestions)
+    global __VERBOSE            # pylint: disable=global-statement
+    global __FILELIST           # pylint: disable=global-statement
+    global __MAKEDATEDIR        # pylint: disable=global-statement
+    global __SIMULATE           # pylint: disable=global-statement
+    global __OOC                # pylint: disable=global-statement
+
+    if '-v' in args or '--verbose' in args:
+        args = [i for i in args if i != '-v']
+        args = [i for i in args if i != '--verbose']
+        __VERBOSE = True
+
+    if '-q' in args or '--quite' in args:
+        args = [i for i in args if i != '-q']
+        args = [i for i in args if i != '--quite']
+        __VERBOSE = False
+
+    if '-h' in args or '--help' in args:
+        args = [i for i in args if i != '-h']
+        args = [i for i in args if i != '--help']
+        print_help()
+
+    if '-d' in args or '--datedir' in args:
+        __MAKEDATEDIR = True
+        args = [i for i in args if i != '-d']
+        args = [i for i in args if i != '--datedir']
+
+    if '-s' in args or '--simulate' in args:
+        args = [i for i in args if i != '-s']
+        args = [i for i in args if i != '--simulate']
+        __SIMULATE = True
+
+    if '-o' in args or '--ooc' in args:
+        args = [i for i in args if i != '-o']
+        args = [i for i in args if i != '--ooc']
+        __OOC = True
+
+    __FILELIST = args
 
 if __name__ == '__main__':
 
+    ALLARGS = sys.argv[1:]
+    __read_args(*ALLARGS)
+
     # PART 1 - READ filenames and put them in a dictionary
     # read file-path(s) from STDIN
-    for orig_filepath in sys.argv[1:]:
+
+    for orig_filepath in __FILELIST:
 
         # ensure we only fetch jpg and jpeg and JPG and JPEG ...
-        #basename_and_path, extension = os.path.splitext(orig_filepath)
         basename_and_path, extension = splitext_last(orig_filepath)
         if not extension in JPG_ORIG_EXTENSIONS:
-            #print(f"{orig_filepath} has the wrong extension for a JPG picture") # TODO VERBOSE
             continue
 
         try:
             with PIL.Image.open(orig_filepath) as picture:
-                timestamp, new_picturepath = create_new_filename(picture)
+                timestamp, new_basename, date = create_new_basename(picture)
 
         except OSError:
-            print(f"{orig_filepath} can't be opened as image", file=sys.stderr) # TODO VERBOSE
+            print(f"{orig_filepath} can't be opened as image", file=sys.stderr)
             continue
 
-        if new_picturepath:
+        if new_basename:
             duplicate = 0
             # There might be other jpg arround with the same timestamp
             # these might be either:
@@ -303,19 +400,32 @@ if __name__ == '__main__':
                 duplicate += 1
 
             # last changed time of that file to see for serial pictures which is the newest
-            ctime = str(os.path.getctime(orig_filepath))
-            mtime = str(os.path.getmtime(orig_filepath))
+            #ctime = str(os.path.getctime(orig_filepath))
+            #mtime = str(os.path.getmtime(orig_filepath))
+
+
+            orig_dirname, origfilename = os.path.split(orig_filepath)
+            orig_basename, orig_all_extensions = splitext_all(origfilename)
+            # the orig_dirname might be empty->absolute path
+            orig_dirname = os.path.abspath(os.path.expanduser(orig_dirname))
+
 
             PIC_DICT[f"{timestamp}_{duplicate}"] = {
                 'timestamp': timestamp,
                 'duplicate': duplicate,
-                'orig_filepath': orig_filepath,
-                'new_basename': new_picturepath,
-                'ctime' : ctime,
+                'orig_basename' : orig_basename,
+                'new_basename': new_basename,
+                'orig_dirname' : orig_dirname,
+                'orig_extension' : orig_all_extensions,
+                'date': date,
                 }
+
+                #'ctime' : ctime,
+                #'orig_filepath': orig_filepath,
 
 
     # PART 2 - analyse what jpg files we've got and find accociate files
+
     PICLIST = sorted(PIC_DICT)
 
     # how long is my list? Is SERIAL_LENGTH long enough (do I have enough digits)?
@@ -338,39 +448,60 @@ if __name__ == '__main__':
         files_to_rename = [] # a list of filename tuples (old,new)
         SERIAL += 1
 
-### PIC_DICT
-###picdictkey - timestamp+duplicatecounter + optional qualifier _raw or _extrafilenumber
-###  timestamp  <- on init
-###  duplicate  <- on init
-#>>  orig_filepath <- on init (name with path and extension)
-#>>  new_basename <- on init, with template {} for serial
-#>>  new_extension
-#>>  new_dirname
-###  serial
+        orig_full_name = os.path.join(
+            PIC_DICT[pic]['orig_dirname'],
+            PIC_DICT[pic]['orig_basename'],
+            ) + \
+            PIC_DICT[pic]['orig_extension']
 
-        orig_full_name = PIC_DICT[pic]['orig_filepath']
+
         date = PIC_DICT[pic]['timestamp']
         duplicate = PIC_DICT[pic]['duplicate']
 
-        # TODO BETTER DUBLICATE HANDLING
+        # TODO BETTER DUBLICATE HANDLING            pylint: disable=fixme
         # -> oldest file (mtime) should win "original without marker status"
         # -> check if the content seems to be really the same
         # -> real duplicates could be marked with a "DUPLICATE" string
-        # FIXME: current status is first come first serve
-
+        # current status is first come first serve
 
         picdict_set_serial_once(pic, SERIAL, SERIAL_LENGTH)
 
         orig_dirname, origfilename = os.path.split(orig_full_name)
         orig_basename, orig_all_extensions = splitext_all(origfilename)
-        new_dirname = orig_dirname # TODO - optional datedir
+        # the orig_dirname might be empty->absolute path
+        orig_dirname = os.path.abspath(os.path.expanduser(orig_dirname))
+        PIC_DICT[pic]['orig_dirname'] = orig_dirname
+        PIC_DICT[pic]['orig_basename'] = orig_basename
+        PIC_DICT[pic]['orig_extension'] = orig_all_extensions
+
+        if __MAKEDATEDIR:
+            __DATEDIR = PIC_DICT[pic]['date']
+
+        if __DATEDIR:
+            new_dirname = os.path.join(orig_dirname, __DATEDIR)
+            try:
+                os.makedirs(new_dirname)
+            except FileExistsError:
+                if os.path.isdir(new_dirname):
+                    pass
+                else:
+                    print(f'ERROR: There is a {new_dirname}, but it is not a directory',
+                          file=sys.stderr)
+                    sys.exit()
+
+        else:
+            new_dirname = orig_dirname
 
         PIC_DICT[pic]['new_dirname'] = new_dirname
 
         if duplicate:
             PIC_DICT[pic]['new_basename'] = PIC_DICT[pic]['new_basename'] + f'_{duplicate}'
 
-        PIC_DICT[pic]['new_extension'] = JPG_EXTENSION
+        if __OOC:
+            PIC_DICT[pic]['new_extension'] = ".ooc" + JPG_EXTENSION
+        else:
+            PIC_DICT[pic]['new_extension'] = JPG_EXTENSION
+
 
         ## and now to the "extra" files which are accociated because of same basename
 
@@ -392,44 +523,44 @@ if __name__ == '__main__':
                     # ok, we did look, nobody has this file so we keep it ...
 
                 PIC_DICT[extra] = {
-                    'orig_filepath' : extrafile,
+                    'orig_dirname' : orig_dirname,
                     'new_dirname' : new_dirname,
+                    'orig_basename' : orig_basename,
+                    'new_basename' : PIC_DICT[pic]['new_basename'],
+                    'orig_extension' : extension,
                     'new_extension' : extension.lower(),
-                    'new_basename' : PIC_DICT[pic]['new_basename']
                     }
+                    #'orig_filepath' : extrafile,
 
 
             else: # if not raw
-                rename_me = True
                 if picdict_has_orig_filepath(extrafile):
-                    rename_me = False   # FIXME ? neccessary?
                     continue
 
                 extra = f"{pic}_{extracounter}"
-                if rename_me:
-                    _, extension = splitext_all(extrafile)
-                    PIC_DICT[extra] = {
-                        'orig_filepath' : extrafile,
-                        'new_dirname' : new_dirname,
-                        'new_extension' : extension.lower(),
-                        'new_basename' : PIC_DICT[pic]['new_basename']
-                        }
+                _, extension = splitext_all(extrafile)
+                PIC_DICT[extra] = {
+                    'orig_dirname' : orig_dirname,
+                    'new_dirname' : new_dirname,
+                    'orig_extension' : extension,
+                    'new_extension' : extension.lower(),
+                    'orig_basename' : orig_basename,
+                    'new_basename' : PIC_DICT[pic]['new_basename'],
+                    }
 
-                    extracounter += 1
+                    #'orig_filepath' : extrafile,
+                extracounter += 1
 
-        # TODO check if target file already at filesystem
-        # TODO rename
-
-        #ALL_FILES_TO_RENAME.extend(files_to_rename)
 
 rename_files()
 
 # don't forget how much mem is used - while developing
 if "getmemsize" in dir():
-    print("sizes of objects in byte:")
-    print(f"Number of shots (max serial no.) {SERIAL}")
-    print(f"Dictionary PIC_DICT entries:     {len(PIC_DICT)}")
-    print(f"Dictionary PIC_DICT:             {getmemsize(PIC_DICT)}")
-    print(f"List PICLIST:                    {getmemsize(PICLIST)}")
+    if __VERBOSE:
+        print("sizes of objects in byte:")
+        print(f"Number of shots (max serial no.) {SERIAL}")
+        print(f"Dictionary PIC_DICT entries:     {len(PIC_DICT)}")
+        print(f"Dictionary PIC_DICT:             {getmemsize(PIC_DICT)}")
+        print(f"List PICLIST:                    {getmemsize(PICLIST)}")
 
 # *** THE END ***
