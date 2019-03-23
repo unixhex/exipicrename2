@@ -1,29 +1,18 @@
 #!/usr/bin/env python3
 """
 exipicrename
-early beta  of python3 version
 
-reads exif data from pictures and rename them
+Early beta  of python3 version.
 
-used exif tags are:
-* DateTimeOriginal
+Reads exif data from pictures and rename them.
+
+Used exif tags are:
 * DateTimeOriginal
 * FNumber
 * ExposureTime
 * FocalLength
 * Model
 * ISOSpeedRatings
-
-usage:
-exipicrename {options} [files]
-
-options:
--v or --verbose   print some info while working
--q or --quite     as silent as possible
--h or --help      print this help
--d or --datedir   write the files in a YYYY-mm-dd directory
--s or --simulate  don't rename (use with --verbose to see what would happen
--o or --ooc       all matching JPG files get the extension .ooc.jpg (out of cam)
 
 """
 
@@ -38,6 +27,7 @@ import re
 import csv
 import time
 import glob
+import argparse
 # PIL from Pillow
 import PIL
 import PIL.Image
@@ -306,16 +296,31 @@ def rename_files():
         if __VERBOSE:
             msg = ""
             if __SIMULATE:
-                msg = "(SIMULATION MODE)"
-            print(f"old filename: <-- {oldname} <-- {msg}")
-            print(f"new filename: --> {newname} --> ")
+                msg = "SIMULATION| "
+            print(f"{msg}rename old: {oldname} ")
+            print(f"{msg}to NEW    : {newname} ")
 
         if not __SIMULATE:
             os.rename(oldname, newname)
 
+
 def print_help():
     "help function"
     print(__doc__)
+    print("""usage: exipicrename.py [-h] [-d] [-o] [-s] [-v | -q] file [file ...]
+
+    neccessary arguments:
+      file            one or more jpeg file(s) to rename
+
+    optional arguments:
+      -h, --help      show this help message and exit
+      -d, --datedir   sort and store pictures to sub-directories depending on
+                      DateTimeOriginal (YYYY-MM-DD)
+      -o, --ooc       use .ooc.jpg as filename extension (for Out Of Cam pictures)
+      -s, --simulate  don't rename (use with --verbose to see what would happen)
+      -v, --verbose
+      -q, --quiet
+    """)
     sys.exit()
 
 def __read_args(*args):
@@ -336,9 +341,9 @@ def __read_args(*args):
         args = [i for i in args if i != '--verbose']
         __VERBOSE = True
 
-    if '-q' in args or '--quite' in args:
+    if '-q' in args or '--quiet' in args:
         args = [i for i in args if i != '-q']
-        args = [i for i in args if i != '--quite']
+        args = [i for i in args if i != '--quiet']
         __VERBOSE = False
 
     if '-h' in args or '--help' in args:
@@ -363,16 +368,70 @@ def __read_args(*args):
 
     __FILELIST = args
 
+def __parse_args():
+    "read and interpret commandline arguments with argparse"
+
+    # I know, globals are not fine. but everything
+    # else suggested e.g. in https://docs.python.org/3.7/faq/programming.html
+    # is in this case more complex, less clear, much more complicate to handle
+    # and more error prone (I am open to suggestions)
+    global __VERBOSE            # pylint: disable=global-statement
+    global __FILELIST           # pylint: disable=global-statement
+    global __MAKEDATEDIR        # pylint: disable=global-statement
+    global __SIMULATE           # pylint: disable=global-statement
+    global __OOC                # pylint: disable=global-statement
+
+    parser = argparse.ArgumentParser(
+            description = __doc__,
+            formatter_class=argparse.RawDescriptionHelpFormatter,
+            )
+    parser.add_argument("file", nargs='+', 
+            help="jpeg files to rename")
+    parser.add_argument("-d", "--datedir", action="store_true",
+            help="sort and store pictures to sub-directories depending on DateTimeOriginal (YYYY-MM-DD) ")
+    parser.add_argument("-o", "--ooc", action="store_true",
+            help="use .ooc.jpg as filename extension (for Out Of Cam pictures)")
+    parser.add_argument("-s", "--simulate", action="store_true",
+            help="don't rename (use with --verbose to see what would happen")
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument("-v", "--verbose", action="store_true")
+    group.add_argument("-q", "--quiet", action="store_true")
+    args = parser.parse_args()
+    if args.quiet:
+        __VERBOSE = False
+    if args.datedir:
+        __MAKEDATEDIR = True
+    if args.simulate:
+        __SIMULATE = True
+    if args.ooc:
+        __OOC = True
+    if args.verbose:
+        __VERBOSE = True
+        print(f"""FLAGS:
+        verbose: {__VERBOSE}
+        makedatedir: {__MAKEDATEDIR},
+        simulate: {__SIMULATE}
+        ooc: {__OOC} """)
+
+    return args.file
+    #__FILELIST = args.file
+
+
 if __name__ == '__main__':
 
-    ALLARGS = sys.argv[1:]
-    __read_args(*ALLARGS)
+    # analyze command line arguments
+
+    #ALLARGS = sys.argv[1:]
+    #__read_args(*ALLARGS)
+    #__FILELIST=args.file
+    
+    __FILELIST=__parse_args()
+
 
     # PART 1 - READ filenames and put them in a dictionary
     # read file-path(s) from STDIN
 
     for orig_filepath in __FILELIST:
-
         # ensure we only fetch jpg and jpeg and JPG and JPEG ...
         basename_and_path, extension = splitext_last(orig_filepath)
         if not extension in JPG_ORIG_EXTENSIONS:
@@ -409,7 +468,6 @@ if __name__ == '__main__':
             # the orig_dirname might be empty->absolute path
             orig_dirname = os.path.abspath(os.path.expanduser(orig_dirname))
 
-
             PIC_DICT[f"{timestamp}_{duplicate}"] = {
                 'timestamp': timestamp,
                 'duplicate': duplicate,
@@ -422,7 +480,7 @@ if __name__ == '__main__':
 
                 #'ctime' : ctime,
                 #'orig_filepath': orig_filepath,
-
+            #print(PIC_DICT[f"{timestamp}_{duplicate}"] )
 
     # PART 2 - analyse what jpg files we've got and find accociate files
 
@@ -478,17 +536,30 @@ if __name__ == '__main__':
             __DATEDIR = PIC_DICT[pic]['date']
 
         if __DATEDIR:
+            
             new_dirname = os.path.join(orig_dirname, __DATEDIR)
-            try:
-                os.makedirs(new_dirname)
-            except FileExistsError:
-                if os.path.isdir(new_dirname):
-                    pass
-                else:
+
+            # is this directory already there
+            # is there something else what has this name but is no dir
+            # write the dir
+            # if problem, exit
+
+            if not os.path.isdir(new_dirname):
+                try:
+                    if __SIMULATE:
+                        if __VERBOSE:
+                            print (f"INFO: create new directory: {new_dirname} (SIMULATION MODE)")
+                    else:
+                        if __VERBOSE:
+                            print (f"INFO: create new directory: {new_dirname}")
+                            os.makedirs(new_dirname)
+
+                except FileExistsError:
                     print(f'ERROR: There is a {new_dirname}, but it is not a directory',
                           file=sys.stderr)
                     sys.exit()
 
+        # don't use an other directory
         else:
             new_dirname = orig_dirname
 
