@@ -64,8 +64,10 @@ PIC_DICT = {}
 __FILELIST = []
 __MAKEDATEDIR = False
 __VERBOSE = False
+__QUIET = False
 __SIMULATE = False
 __OOC = False
+__SHORT = False
 __DATEDIR = ''
 
 # this extensions we read as JPEG
@@ -114,19 +116,23 @@ def create_new_basename(img):
     try:
         _datetime = format_datetime(exif['DateTimeOriginal'])
         _date = format_date(exif['DateTimeOriginal'])
-        _aperture = format_aperture(exif['FNumber'])
-        _exposure_time = format_exposuretime_tuple(exif['ExposureTime'])
-        _focal_len = format_focal_length_tuple(exif['FocalLength'])
-        _camera = format_camera_name(exif['Model'])
-        _iso = (exif['ISOSpeedRatings'])
+        if not __SHORT:
+            _aperture = format_aperture(exif['FNumber'])
+            _exposure_time = format_exposuretime_tuple(exif['ExposureTime'])
+            _focal_len = format_focal_length_tuple(exif['FocalLength'])
+            _camera = format_camera_name(exif['Model'])
+            _iso = (exif['ISOSpeedRatings'])
     except KeyError:
         if __VERBOSE:
             print('(Some) exif tags missing in ' + img.filename, file=sys.stderr)
         return None, None, None
 
-    return _datetime, \
-           (f"{_datetime}__{{}}__{_camera}__{_focal_len}__{_aperture}__iso{_iso}"), \
-           _date
+    if not __SHORT:
+        _new_basename = f"{_datetime}__{{}}__{_camera}__{_focal_len}__{_aperture}__iso{_iso}"
+    else:
+        _new_basename = f"{_datetime}__{{}}"
+
+    return _datetime, _new_basename, _date
 
 def format_camera_name(_name):
     """format camera name - substitute unwanted characters, lower case
@@ -280,12 +286,12 @@ def rename_files():
         if oldname == newname:
             continue
 
-        if not os.path.isfile(oldname):
+        if not os.path.isfile(oldname) and not __QUIET:
             print(f"WARNING: want to rename {oldname}\n"
                   f"                     to {newname}\n"
                   f"         but orig file not available any more", file=sys.stderr)
             continue
-        if os.path.isfile(newname):
+        if os.path.isfile(newname) and not __QUIET:
             print(f"WARNING: did not overwrite existing file\n"
                   f"\t{newname}\n\twith:\n"
                   f"\t{oldname}", file=sys.stderr)
@@ -295,8 +301,9 @@ def rename_files():
 
         if __VERBOSE:
             msg = ""
-            if __SIMULATE:
-                msg = "SIMULATION| "
+        if __SIMULATE:
+            msg = "SIMULATION| "
+        if __VERBOSE or (__SIMULATE and not __QUIET):
             print(f"{msg}rename old: {oldname} ")
             print(f"{msg}to NEW    : {newname} ")
 
@@ -315,7 +322,9 @@ def __parse_args():
     global __FILELIST           # pylint: disable=global-statement
     global __MAKEDATEDIR        # pylint: disable=global-statement
     global __SIMULATE           # pylint: disable=global-statement
+    global __QUIET              # pylint: disable=global-statement
     global __OOC                # pylint: disable=global-statement
+    global __SHORT              # pylint: disable=global-statement
 
     parser = argparse.ArgumentParser(
         description=__doc__,
@@ -328,27 +337,36 @@ def __parse_args():
                         "depending on DateTimeOriginal (YYYY-MM-DD) ")
     parser.add_argument("-o", "--ooc", action="store_true",
                         help="use .ooc.jpg as filename extension (for Out Of Cam pictures)")
-    parser.add_argument("-s", "--simulate", action="store_true",
-                        help="don't rename (use with --verbose to see what would happen")
+    parser.add_argument("-s", "--short", action="store_true",
+                        help="use short names: only date + serial number,"
+                        " no exhaustive camera data")
+    parser.add_argument("-n", "--simulate", "--dry-run", action="store_true",
+                        help="don't rename, just show what would happen")
     group = parser.add_mutually_exclusive_group()
     group.add_argument("-v", "--verbose", action="store_true")
     group.add_argument("-q", "--quiet", action="store_true")
     args = parser.parse_args()
     if args.quiet:
         __VERBOSE = False
+        __QUIET = True
     if args.datedir:
         __MAKEDATEDIR = True
     if args.simulate:
         __SIMULATE = True
     if args.ooc:
         __OOC = True
+    if args.short:
+        __SHORT = True
     if args.verbose:
         __VERBOSE = True
         print(f"""FLAGS:
         verbose: {__VERBOSE}
+        quiet: {__QUIET}
         makedatedir: {__MAKEDATEDIR},
         simulate: {__SIMULATE}
-        ooc: {__OOC} """)
+        ooc: {__OOC}
+        short: {__SHORT}
+        """)
 
     return args.file
     #__FILELIST = args.file
@@ -374,7 +392,8 @@ if __name__ == '__main__':
                 timestamp, new_basename, date = create_new_basename(picture)
 
         except OSError:
-            print(f"{orig_filepath} can't be opened as image", file=sys.stderr)
+            if not __QUIET:
+                print(f"{orig_filepath} can't be opened as image", file=sys.stderr)
             continue
 
         if new_basename:
@@ -560,9 +579,9 @@ rename_files()
 # don't forget how much mem is used - while developing
 if "getmemsize" in dir():
     if __VERBOSE:
-        print("sizes of objects in byte:")
         print(f"Number of shots (max serial no.) {SERIAL}")
         print(f"Dictionary PIC_DICT entries:     {len(PIC_DICT)}")
+        print("--- sizes of objects in bytes ----")
         print(f"Dictionary PIC_DICT:             {getmemsize(PIC_DICT)}")
         print(f"List PICLIST:                    {getmemsize(PICLIST)}")
 
