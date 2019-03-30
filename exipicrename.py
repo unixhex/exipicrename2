@@ -503,7 +503,8 @@ if __name__ == '__main__':
                     else:
                         if __VERBOSE:
                             print(f"INFO: create new directory: {new_dirname}")
-                            os.makedirs(new_dirname)
+
+                        os.makedirs(new_dirname)
 
                 except FileExistsError:
                     print(f'ERROR: There is a {new_dirname}, but it is not a directory',
