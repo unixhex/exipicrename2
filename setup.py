@@ -5,7 +5,6 @@ def readme():
         long_description = fh.read()
     return long_description
 
-
 setup(
     name='exipicrename',
     version='0.2',
@@ -22,6 +21,11 @@ setup(
     license='MIT',
     packages=['exipicrename'],
     platforms=['Linux', 'Android (planned)'],
+      ],
+    url='https://github.com/unixhex/exipicrename2',
+    author='Hella Breitkopf',
+    licence='MIT',
+    packages=['exipicrename'],
     install_requires=[
         'pillow',
     ],
