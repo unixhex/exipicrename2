@@ -21,11 +21,6 @@ setup(
     license='MIT',
     packages=['exipicrename'],
     platforms=['Linux', 'Android (planned)'],
-      ],
-    url='https://github.com/unixhex/exipicrename2',
-    author='Hella Breitkopf',
-    licence='MIT',
-    packages=['exipicrename'],
     install_requires=[
         'pillow',
     ],
