@@ -34,12 +34,18 @@ used exif tags are:
 usage:
 exipicrename {options} [files]
 options:
--v or --verbose   print some info while working
--q or --quite     as silent as possible
--h or --help      print this help
--d or --datedir   write the files in a YYYY-mm-dd directory
--s or --simulate  don't rename (use with --verbose to see what would happen
--o or --ooc       all matching JPG files get the extension .ooc.jpg (out of cam)
+  -h, --help            show help message and exit
+  -d, --datedir         sort and store pictures to sub-directories depending on
+                        DateTimeOriginal (YYYY-MM-DD)
+  -o, --ooc             use .ooc.jpg as filename extension (for Out Of Cam
+                        pictures)
+  -s, --short           use short names: only date + serial number, no
+                        exhaustive camera data
+  -n, --simulate, --dry-run
+                        don't rename, just show what would happen
+  -v, --verbose
+  -q, --quiet
+
 ```
 
 
