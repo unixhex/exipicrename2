@@ -2,7 +2,7 @@
 """
 exipicrename
 
-Early beta  of python3 version.
+beta of python3 version.
 
 Reads exif data from pictures and rename them.
 
@@ -92,7 +92,7 @@ RAW_EXTENSIONS = (
 
 
 
-def create_new_basename(img):
+def __create_new_basename(img):
     """create a new filename based on exif data"""
     # fetch tagging from https://stackoverflow.com/a/4765242
     try:
@@ -110,9 +110,9 @@ def create_new_basename(img):
         _datetime = format_datetime(exif['DateTimeOriginal'])
         _date = format_date(exif['DateTimeOriginal'])
         if not __SHORT:
-            _aperture = format_aperture(exif['FNumber'])
-            _exposure_time = format_exposuretime_tuple(exif['ExposureTime'])
-            _focal_len = format_focal_length_tuple(exif['FocalLength'])
+            _aperture = format_aperture_tuple(exif['FNumber'])
+            _exposure_time = __format_exposuretime_tuple(exif['ExposureTime'])
+            _focal_len = __format_focal_length_tuple(exif['FocalLength'])
             _camera = format_camera_name(exif['Model'])
             _iso = (exif['ISOSpeedRatings'])
     except KeyError:
@@ -131,14 +131,14 @@ def format_camera_name(_name):
     """format camera name - substitute unwanted characters, lower case
     if available, read translations for camera models from csv and apply them """
     _newname = re.sub(r'[^a-zA-Z0-9]+', SUBSTITUTE, _name.strip().lower())
-    read_model_translate_csv()
+    __read_model_translate_csv()
     if _newname in CAMERADICT:
         return CAMERADICT[_newname]
 
     return _newname
 
 
-def format_aperture(_tuple):
+def format_aperture_tuple(_tuple):
     "format aperture tuple to short printable string"
     numerator = _tuple[0]  # numerator = zaehler
     divisor = _tuple[1]    # divisor = nenner
@@ -152,7 +152,7 @@ def format_aperture(_tuple):
     return "f" + str(numerator/divisor).replace('.', DELIMITER)
 
 
-def format_focal_length_tuple(_tuple):
+def __format_focal_length_tuple(_tuple):
     """format FocalLenght tuple to short printable string
     we ignore the position after the decimal point
     because it is usually not very essential for focal length
@@ -179,7 +179,7 @@ def format_focal_length_tuple(_tuple):
     return _string
 
 
-def format_exposuretime_tuple(_tuple):
+def __format_exposuretime_tuple(_tuple):
     """format ExposureTime tuple to short printable string
     fractions over or equal 1 second are marked with s, e.g. 8s
     fractions below 1 second are broken down to the divisor,
@@ -214,7 +214,7 @@ def format_date(_datetime):
     return time.strftime("%Y-%m-%d", _time_struct)
 
 
-def read_model_translate_csv():
+def __read_model_translate_csv():
     """read the model translate csv - if available (only once)"""
     if CAMERADICT:
         # we've read the csv already
@@ -235,7 +235,7 @@ def splitext_all(_filename):
     return(_name, "."+ _extensions)
 
 
-def picdict_set_serial_once(_pic, _serial, _serial_length):
+def __picdict_set_serial_once(_pic, _serial, _serial_length):
     """set serial number in a global PIC_DICT dictionary entry (if not set yet or if empty)"""
     # make a string out of "_serial", fill it up with 0 up to _serial_length
     # include it into the new file base name
@@ -250,7 +250,7 @@ def picdict_set_serial_once(_pic, _serial, _serial_length):
         PIC_DICT[_pic]['new_basename'].format(str(_serial).zfill(_serial_length))
     return True
 
-def picdict_has_orig_filepath(filepath):
+def __picdict_has_orig_filepath(filepath):
     """search if this filename is already recorded in global PIC_DICT"""
     for filerecord in PIC_DICT.values():
         try:
@@ -261,7 +261,7 @@ def picdict_has_orig_filepath(filepath):
         return False
 
 
-def rename_files():
+def __rename_files():
     """rename files (after check if we don't overwrite)"""
     for k in sorted(PIC_DICT):
 
@@ -363,7 +363,7 @@ def __parse_args():
     return args.file
 
 
-def read_picture_data(_filelist):
+def __read_picture_data(_filelist):
     """ READ picture exif data, put it in dictionary PIC_DICT"""
 
     for orig_filepath in _filelist:
@@ -374,7 +374,7 @@ def read_picture_data(_filelist):
 
         try:
             with PIL.Image.open(orig_filepath) as picture:
-                timestamp, new_basename, date = create_new_basename(picture)
+                timestamp, new_basename, date = __create_new_basename(picture)
 
         except OSError:
             if not __QUIET:
@@ -418,12 +418,11 @@ def read_picture_data(_filelist):
                 #'orig_filepath': orig_filepath,
 
 
-def organize_picture_data():
+def __organize_picture_data():
     """analyse what jpg files we've got and find accociate files"""
 
     global SERIAL_LENGTH    # pylint: disable=global-statement
     pic_list = sorted(PIC_DICT)
-    _datedir = ''
 
     # how long is my list? Is SERIAL_LENGTH long enough (do I have enough digits)?
     serial_min_length = (len(str(len(pic_list))))
@@ -444,137 +443,142 @@ def organize_picture_data():
 
         serial += 1
 
-        orig_full_name = os.path.join(
-            PIC_DICT[pic]['orig_dirname'],
-            PIC_DICT[pic]['orig_basename'],
-            ) + \
-            PIC_DICT[pic]['orig_extension']
+        organize_jpg_files(pic, serial)
+        organize_extra_files(pic)
+
+def organize_jpg_files(pic, serial):
+    """organize new paths for the jpg files"""
+    orig_full_name = os.path.join(
+        PIC_DICT[pic]['orig_dirname'],
+        PIC_DICT[pic]['orig_basename'],
+        ) + \
+        PIC_DICT[pic]['orig_extension']
 
 
-        duplicate = PIC_DICT[pic]['duplicate']
+    duplicate = PIC_DICT[pic]['duplicate']
 
-        # TODO BETTER DUBLICATE HANDLING            pylint: disable=fixme
-        # -> oldest file (mtime) should win "original without marker status"
-        # -> check if the content seems to be really the same
-        # -> real duplicates could be marked with a "DUPLICATE" string
-        # current status is first come first serve
+    # TODO BETTER DUBLICATE HANDLING            pylint: disable=fixme
+    # -> oldest file (mtime) should win "original without marker status"
+    # -> check if the content seems to be really the same
+    # -> real duplicates could be marked with a "DUPLICATE" string
+    # current status is first come first serve
 
-        picdict_set_serial_once(pic, serial, SERIAL_LENGTH)
+    __picdict_set_serial_once(pic, serial, SERIAL_LENGTH)
 
-        orig_dirname, origfilename = os.path.split(orig_full_name)
-        orig_basename, orig_all_extensions = splitext_all(origfilename)
-        # the orig_dirname might be empty->absolute path
-        orig_dirname = os.path.abspath(os.path.expanduser(orig_dirname))
-        PIC_DICT[pic]['orig_dirname'] = orig_dirname
-        PIC_DICT[pic]['orig_basename'] = orig_basename
-        PIC_DICT[pic]['orig_extension'] = orig_all_extensions
+    orig_dirname, origfilename = os.path.split(orig_full_name)
+    orig_basename, orig_all_extensions = splitext_all(origfilename)
+    # the orig_dirname might be empty->absolute path
+    orig_dirname = os.path.abspath(os.path.expanduser(orig_dirname))
+    PIC_DICT[pic]['orig_dirname'] = orig_dirname
+    PIC_DICT[pic]['orig_basename'] = orig_basename
+    PIC_DICT[pic]['orig_extension'] = orig_all_extensions
 
-        if __MAKEDATEDIR:
-            _datedir = PIC_DICT[pic]['date']
+    if __MAKEDATEDIR:
 
-        if _datedir:
+        new_dirname = os.path.join(orig_dirname, PIC_DICT[pic]['date'])
 
-            new_dirname = os.path.join(orig_dirname, _datedir)
+        # is this directory already there
+        # is there something else what has this name but is no dir
+        # write the dir
+        # if problem, exit
 
-            # is this directory already there
-            # is there something else what has this name but is no dir
-            # write the dir
-            # if problem, exit
+        if not os.path.isdir(new_dirname):
+            try:
+                if __SIMULATE:
+                    if __VERBOSE:
+                        print(f"INFO: create new directory: {new_dirname} (SIMULATION MODE)")
+                else:
+                    if __VERBOSE:
+                        print(f"INFO: create new directory: {new_dirname}")
 
-            if not os.path.isdir(new_dirname):
-                try:
-                    if __SIMULATE:
-                        if __VERBOSE:
-                            print(f"INFO: create new directory: {new_dirname} (SIMULATION MODE)")
-                    else:
-                        if __VERBOSE:
-                            print(f"INFO: create new directory: {new_dirname}")
+                    os.makedirs(new_dirname)
 
-                        os.makedirs(new_dirname)
+            except FileExistsError:
+                print(f'ERROR: There is a {new_dirname}, but it is not a directory',
+                      file=sys.stderr)
+                sys.exit()
 
-                except FileExistsError:
-                    print(f'ERROR: There is a {new_dirname}, but it is not a directory',
-                          file=sys.stderr)
-                    sys.exit()
+    # don't use an other directory
+    else:
+        new_dirname = orig_dirname
 
-        # don't use an other directory
-        else:
-            new_dirname = orig_dirname
+    PIC_DICT[pic]['new_dirname'] = new_dirname
 
-        PIC_DICT[pic]['new_dirname'] = new_dirname
+    if duplicate:
+        PIC_DICT[pic]['new_basename'] = PIC_DICT[pic]['new_basename'] + f'_{duplicate}'
 
-        if duplicate:
-            PIC_DICT[pic]['new_basename'] = PIC_DICT[pic]['new_basename'] + f'_{duplicate}'
-
-        if __OOC:
-            PIC_DICT[pic]['new_extension'] = ".ooc" + JPG_EXTENSION
-        else:
-            PIC_DICT[pic]['new_extension'] = JPG_EXTENSION
+    if __OOC:
+        PIC_DICT[pic]['new_extension'] = ".ooc" + JPG_EXTENSION
+    else:
+        PIC_DICT[pic]['new_extension'] = JPG_EXTENSION
 
 
-        ## and now to the "extra" files which are accociated because of same basename
+def organize_extra_files(pic):
+    """organize new paths for the associated files"""
+    extracounter = 0
 
-        extracounter = 0
-        for extrafile in glob.glob(f'{orig_dirname}/{orig_basename}*'):
-            if extrafile == orig_full_name:
-                continue # next file
+    orig_dirname = PIC_DICT[pic]['orig_dirname']
+    new_dirname = PIC_DICT[pic]['new_dirname']
+    orig_basename = PIC_DICT[pic]['orig_basename']
+    orig_full_name = os.path.join(
+        PIC_DICT[pic]['orig_dirname'],
+        PIC_DICT[pic]['orig_basename'],
+        ) + \
+        PIC_DICT[pic]['orig_extension']
+    duplicate = PIC_DICT[pic]['duplicate']
 
-            # raw
-            _, extension = splitext_last(extrafile)
-            if extension in RAW_EXTENSIONS:
-                extra = f"{pic}_raw"
-                if duplicate:
-                    # check if the first jpg (or a following) file
-                    # already "claimed" this raw file
-                    if picdict_has_orig_filepath(extrafile):
-                        continue
+    for extrafile in glob.glob(f'{orig_dirname}/{orig_basename}*'):
+        if extrafile == orig_full_name:
+            continue # next file
 
-                    # ok, we did look, nobody has this file so we keep it ...
-
-                PIC_DICT[extra] = {
-                    'orig_dirname' : orig_dirname,
-                    'new_dirname' : new_dirname,
-                    'orig_basename' : orig_basename,
-                    'new_basename' : PIC_DICT[pic]['new_basename'],
-                    'orig_extension' : extension,
-                    'new_extension' : extension.lower(),
-                    }
-                    #'orig_filepath' : extrafile,
-
-
-            else: # if not raw
-                if picdict_has_orig_filepath(extrafile):
+        # raw
+        _, extension = splitext_last(extrafile)
+        if extension in RAW_EXTENSIONS:
+            extra = f"{pic}_raw"
+            if duplicate:
+                # check if the first jpg (or a following) file
+                # already "claimed" this raw file
+                if __picdict_has_orig_filepath(extrafile):
                     continue
 
-                extra = f"{pic}_{extracounter}"
-                _, extension = splitext_all(extrafile)
-                PIC_DICT[extra] = {
-                    'orig_dirname' : orig_dirname,
-                    'new_dirname' : new_dirname,
-                    'orig_extension' : extension,
-                    'new_extension' : extension.lower(),
-                    'orig_basename' : orig_basename,
-                    'new_basename' : PIC_DICT[pic]['new_basename'],
-                    }
+                # ok, we did look, nobody has this file so we keep it ...
 
-                    #'orig_filepath' : extrafile,
-                extracounter += 1
+        else: # if not raw
+            if __picdict_has_orig_filepath(extrafile):
+                continue
 
+            extra = f"{pic}_{extracounter}"
+            _, extension = splitext_all(extrafile)
+
+        PIC_DICT[extra] = {
+            'orig_dirname' : orig_dirname,
+            'new_dirname' : new_dirname,
+            'orig_basename' : orig_basename,
+            'new_basename' : PIC_DICT[pic]['new_basename'],
+            'orig_extension' : extension,
+            'new_extension' : extension.lower(),
+            }
+            #'orig_filepath' : extrafile,
+
+        if extension not in RAW_EXTENSIONS:
+            extracounter += 1
+
+def main(filelist):
+    """Read exif data from (filelist) pictures,
+    rename them and associated files (e.g. raw files, xmp files, ... )."""
+    # read exif data from picture files and store this data in PIC_DICT
+    __read_picture_data(filelist)
+
+    # analyse what jpg files we've got and find accociate files
+    # write all to PIC_DICT
+    __organize_picture_data()
+
+    # now do the renaming (based on all stored data in PIC_DICT)
+    __rename_files()
 
 
 if __name__ == '__main__':
 
-    # analyze command line arguments
-    FILELIST = __parse_args()
-
-    # read exif data from picture files and put them into PIC_DICT
-    read_picture_data(FILELIST)
-
-    # analyse what jpg files we've got and find accociate files
-    organize_picture_data()
-
-    # now do the renaming (based on all stored data in PIC_DICT)
-    rename_files()
-
+    main(__parse_args())
 
 # *** THE END ***
