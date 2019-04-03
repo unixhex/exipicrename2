@@ -1,24 +1,7 @@
 # exipicrename2
 
-python3 script for renaming pictures (and matching raw files)
-on base of embeded exif / iptc data - date, camera name, serial numbers e.g.
-
-Target-Platforms: Linux, Android
-
-Stage of this project: initializing / early development
-
-
-early beta  of python3 version
-seems to work on Linux with python 3.7
-
-No waranty it is working for you, too.
-**Please make a backup of your files** before testing this. 
-
-
-This programm needs the python library "pillow".
-
-see also: requirements.txt
-
+python3 script for renaming pictures (and matching (raw, xml, txt, ..) files)
+on base of embedded exif / iptc data - date, camera name, serial numbers e.g.
 
 reads exif data from pictures and rename them
 used exif tags are:
@@ -30,16 +13,37 @@ used exif tags are:
 * Model
 * ISOSpeedRatings
 
+Working Platform (beta): Linux
+Target Platform (early dev): Android
+
+developed with python 3.7, might or might not work with earlier versions
+of python 3
+
+No waranty it is working for you, too.
+**Please make a backup of your files** before testing this. 
+
+
+This programm needs the python library "pillow".
+
+see also: requirements.txt
+
+
 ```
 usage:
 exipicrename {options} [files]
 options:
--v or --verbose   print some info while working
--q or --quite     as silent as possible
--h or --help      print this help
--d or --datedir   write the files in a YYYY-mm-dd directory
--s or --simulate  don't rename (use with --verbose to see what would happen
--o or --ooc       all matching JPG files get the extension .ooc.jpg (out of cam)
+  -h, --help            show help message and exit
+  -d, --datedir         sort and store pictures to sub-directories depending on
+                        DateTimeOriginal (YYYY-MM-DD)
+  -o, --ooc             use .ooc.jpg as filename extension (for Out Of Cam
+                        pictures)
+  -s, --short           use short names: only date + serial number, no
+                        exhaustive camera data
+  -n, --simulate, --dry-run
+                        don't rename, just show what would happen
+  -v, --verbose
+  -q, --quiet
+
 ```
 
 
