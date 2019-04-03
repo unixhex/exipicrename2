@@ -1,24 +1,7 @@
 # exipicrename2
 
-python3 script for renaming pictures (and matching raw files)
-on base of embeded exif / iptc data - date, camera name, serial numbers e.g.
-
-Target-Platforms: Linux, Android
-
-Stage of this project: initializing / early development
-
-
-early beta  of python3 version
-seems to work on Linux with python 3.7
-
-No waranty it is working for you, too.
-**Please make a backup of your files** before testing this. 
-
-
-This programm needs the python library "pillow".
-
-see also: requirements.txt
-
+python3 script for renaming pictures (and matching (raw, xml, txt, ..) files)
+on base of embedded exif / iptc data - date, camera name, serial numbers e.g.
 
 reads exif data from pictures and rename them
 used exif tags are:
@@ -29,6 +12,21 @@ used exif tags are:
 * FocalLength
 * Model
 * ISOSpeedRatings
+
+Working Platform (beta): Linux
+Target Platform (early dev): Android
+
+developed with python 3.7, might or might not work with earlier versions
+of python 3
+
+No waranty it is working for you, too.
+**Please make a backup of your files** before testing this. 
+
+
+This programm needs the python library "pillow".
+
+see also: requirements.txt
+
 
 ```
 usage:
