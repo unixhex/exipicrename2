@@ -33,11 +33,6 @@ import PIL
 import PIL.Image
 import PIL.ExifTags
 
-try:
-    from pysize import get_size as getmemsize #just for debugging
-    # pysize from https://github.com/bosswissam/pysize
-except ModuleNotFoundError:
-    pass
 
 # which symbol should be used instead of the decimal delimiter '.' e.g. for aperture (blende)
 # since a dot is not good in file names we use something else
@@ -61,14 +56,12 @@ MODEL_TRANSLATE_CSV = "camera-model-rename.csv"
 CAMERADICT = {}
 PIC_DICT = {}
 
-__FILELIST = []
 __MAKEDATEDIR = False
 __VERBOSE = False
 __QUIET = False
 __SIMULATE = False
 __OOC = False
 __SHORT = False
-__DATEDIR = ''
 
 # this extensions we read as JPEG
 JPG_ORIG_EXTENSIONS = ('.jpg', '.JPG', '.jpeg', '.JPEG')
@@ -244,7 +237,7 @@ def splitext_all(_filename):
 
 def picdict_set_serial_once(_pic, _serial, _serial_length):
     """set serial number in a global PIC_DICT dictionary entry (if not set yet or if empty)"""
-    # make a string out of "SERIAL", fill it up with 0 up to SERIAL_LENGTH
+    # make a string out of "_serial", fill it up with 0 up to _serial_length
     # include it into the new file base name
     try:
         _ = PIC_DICT[_pic]['serial']
@@ -319,7 +312,6 @@ def __parse_args():
     # is in this case more complex, less clear, much more complicate to handle
     # and more error prone (I am open to suggestions)
     global __VERBOSE            # pylint: disable=global-statement
-    global __FILELIST           # pylint: disable=global-statement
     global __MAKEDATEDIR        # pylint: disable=global-statement
     global __SIMULATE           # pylint: disable=global-statement
     global __QUIET              # pylint: disable=global-statement
@@ -369,21 +361,14 @@ def __parse_args():
         """)
 
     return args.file
-    #__FILELIST = args.file
 
 
-if __name__ == '__main__':
+def read_picture_data(_filelist):
+    """ READ picture exif data, put it in dictionary PIC_DICT"""
 
-    # analyze command line arguments
-    __FILELIST = __parse_args()
-
-
-    # PART 1 - READ filenames and put them in a dictionary
-    # read file-path(s) from STDIN
-
-    for orig_filepath in __FILELIST:
+    for orig_filepath in _filelist:
         # ensure we only fetch jpg and jpeg and JPG and JPEG ...
-        basename_and_path, extension = splitext_last(orig_filepath)
+        _, extension = splitext_last(orig_filepath)
         if not extension in JPG_ORIG_EXTENSIONS:
             continue
 
@@ -431,31 +416,33 @@ if __name__ == '__main__':
 
                 #'ctime' : ctime,
                 #'orig_filepath': orig_filepath,
-            #print(PIC_DICT[f"{timestamp}_{duplicate}"] )
 
-    # PART 2 - analyse what jpg files we've got and find accociate files
 
-    PICLIST = sorted(PIC_DICT)
+def organize_picture_data():
+    """analyse what jpg files we've got and find accociate files"""
+
+    global SERIAL_LENGTH    # pylint: disable=global-statement
+    pic_list = sorted(PIC_DICT)
+    _datedir = ''
 
     # how long is my list? Is SERIAL_LENGTH long enough (do I have enough digits)?
-    SERIAL_MIN_LENGTH = (len(str(len(PICLIST))))
+    serial_min_length = (len(str(len(pic_list))))
 
     # also possible, but to import just for this an extra module?
     # is it faster? also on android?
     #import math
-    #SERIAL_MIN_LENGTH=(int(math.log(len(PICLIST),10))+1)
+    #serial_min_length=(int(math.log(len(pic_list),10))+1)
 
-    if SERIAL_MIN_LENGTH > SERIAL_LENGTH:
-        SERIAL_LENGTH = SERIAL_MIN_LENGTH
+    if serial_min_length > SERIAL_LENGTH:
+        SERIAL_LENGTH = serial_min_length
 
-    # SERIAL NUMBER included into the new picture name
-    SERIAL = 0
+    # serial NUMBER included into the new picture name
+    serial = 0
 
     # walk now through all pictures to process them
-    for pic in PICLIST:
+    for pic in pic_list:
 
-        files_to_rename = [] # a list of filename tuples (old,new)
-        SERIAL += 1
+        serial += 1
 
         orig_full_name = os.path.join(
             PIC_DICT[pic]['orig_dirname'],
@@ -464,7 +451,6 @@ if __name__ == '__main__':
             PIC_DICT[pic]['orig_extension']
 
 
-        date = PIC_DICT[pic]['timestamp']
         duplicate = PIC_DICT[pic]['duplicate']
 
         # TODO BETTER DUBLICATE HANDLING            pylint: disable=fixme
@@ -473,7 +459,7 @@ if __name__ == '__main__':
         # -> real duplicates could be marked with a "DUPLICATE" string
         # current status is first come first serve
 
-        picdict_set_serial_once(pic, SERIAL, SERIAL_LENGTH)
+        picdict_set_serial_once(pic, serial, SERIAL_LENGTH)
 
         orig_dirname, origfilename = os.path.split(orig_full_name)
         orig_basename, orig_all_extensions = splitext_all(origfilename)
@@ -484,11 +470,11 @@ if __name__ == '__main__':
         PIC_DICT[pic]['orig_extension'] = orig_all_extensions
 
         if __MAKEDATEDIR:
-            __DATEDIR = PIC_DICT[pic]['date']
+            _datedir = PIC_DICT[pic]['date']
 
-        if __DATEDIR:
+        if _datedir:
 
-            new_dirname = os.path.join(orig_dirname, __DATEDIR)
+            new_dirname = os.path.join(orig_dirname, _datedir)
 
             # is this directory already there
             # is there something else what has this name but is no dir
@@ -575,15 +561,20 @@ if __name__ == '__main__':
                 extracounter += 1
 
 
-rename_files()
 
-# don't forget how much mem is used - while developing
-if "getmemsize" in dir():
-    if __VERBOSE:
-        print(f"Number of shots (max serial no.) {SERIAL}")
-        print(f"Dictionary PIC_DICT entries:     {len(PIC_DICT)}")
-        print("--- sizes of objects in bytes ----")
-        print(f"Dictionary PIC_DICT:             {getmemsize(PIC_DICT)}")
-        print(f"List PICLIST:                    {getmemsize(PICLIST)}")
+if __name__ == '__main__':
+
+    # analyze command line arguments
+    FILELIST = __parse_args()
+
+    # read exif data from picture files and put them into PIC_DICT
+    read_picture_data(FILELIST)
+
+    # analyse what jpg files we've got and find accociate files
+    organize_picture_data()
+
+    # now do the renaming (based on all stored data in PIC_DICT)
+    rename_files()
+
 
 # *** THE END ***
