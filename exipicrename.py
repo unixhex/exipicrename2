@@ -570,6 +570,7 @@ def __organize_jpg_files(pic, serial):
     __PIC_DICT[pic]['orig_basename'] = orig_basename
     __PIC_DICT[pic]['orig_extension'] = orig_all_extensions
 
+    # move files to other directory
     if use_date_dir():
 
         new_dirname = os.path.join(orig_dirname, __PIC_DICT[pic]['date'])
@@ -595,7 +596,7 @@ def __organize_jpg_files(pic, serial):
                       file=sys.stderr)
                 sys.exit()
 
-    # don't use an other directory
+    # don't move files to an other directory
     else:
         new_dirname = orig_dirname
 
@@ -666,8 +667,18 @@ def __clean_stored_data():
 
 def main(filelist):
     """Read exif data from (filelist) pictures,
-    rename them and associated files (e.g. raw files, xmp files, ... )."""
+    rename them and associated files (e.g. raw files, xmp files, ... ).
+    input should be a list of filenames (one single filenames as string is also accepted)"""
     # read exif data from picture files and store this data in __PIC_DICT
+
+    # for single files we don't require a list
+    if not isinstance(filelist, list) and isinstance(filelist, str):
+        filelist = [filelist]
+    else:
+        if not is_silent():
+            print(f"Error: expected list of files ", file=sys.stderr)
+        sys.exit(1)
+
     __read_picture_data(filelist)
 
     # analyse what jpg files we've got and find accociate files
