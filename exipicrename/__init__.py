@@ -1,1 +1,1 @@
-from .exipicrename import exipicrename
+from .exipicrename import *
