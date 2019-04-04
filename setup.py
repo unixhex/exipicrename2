@@ -30,7 +30,7 @@ setup(
         'pillow',
     ],
     entry_points = {
-        'console_scripts': ['expicrename=exipicrename.exipicrename:main'],
+        'console_scripts': ['exipicrename=exipicrename.exipicrename:main'],
         },
     include_package_data=True,
     zip_safe=False,
