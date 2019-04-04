@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 from setuptools import setup
 
 def readme():
@@ -7,20 +9,23 @@ def readme():
 
 setup(
     name='exipicrename',
-    version='0.2',
+    version='0.0.0.3',
     description='renaming pictures (and matching raw files) on embeded exif',
     long_description=readme(),
     classifiers=[
         'Development Status :: 3 - Alpha',
         'License :: OSI Approved :: MIT License',
         'Programming Language :: Python :: 3.7',
+        'Operating System :: POSIX',
+        'Operating System :: Unix',
         'Topic :: Utilities',
       ],
     url='https://github.com/unixhex/exipicrename2',
     author='Hella Breitkopf',
+    author_email="expicrename@unixwitch.de",
     license='MIT',
     packages=['exipicrename'],
-    platforms=['Linux', 'Android (planned)'],
+    platforms=['Linux'],
     install_requires=[
         'pillow',
     ],
