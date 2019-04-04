@@ -1,0 +1,4 @@
+include exipicrename/camera-model-rename.csv
+include README.md
+include requirements.txt
+include LICENSE

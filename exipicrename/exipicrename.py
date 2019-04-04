@@ -465,7 +465,6 @@ def __parse_args():
         use_ooc: {use_ooc()}
         short_names: {use_short_names()}
         """)
-
     return args.file
 
 
@@ -665,19 +664,20 @@ def __clean_stored_data():
     global __PIC_DICT  # pylint: disable=global-statement
     __PIC_DICT = {}
 
-def main(filelist):
+def exipicrename(filelist):
     """Read exif data from (filelist) pictures,
     rename them and associated files (e.g. raw files, xmp files, ... ).
     input should be a list of filenames (one single filenames as string is also accepted)"""
     # read exif data from picture files and store this data in __PIC_DICT
 
     # for single files we don't require a list
-    if not isinstance(filelist, list) and isinstance(filelist, str):
-        filelist = [filelist]
-    else:
-        if not is_silent():
-            print(f"Error: expected list of files ", file=sys.stderr)
-        sys.exit(1)
+    if not isinstance(filelist, list):
+        if isinstance(filelist, str):
+            filelist = [filelist]
+        else:
+            if not is_silent():
+                print(f"Error: expected list of files ", file=sys.stderr)
+            sys.exit(1)
 
     __read_picture_data(filelist)
 
@@ -691,9 +691,12 @@ def main(filelist):
     # for use as a module: clean up stored data from __PIC_DICT
     __clean_stored_data()
 
+def main():
+    """main - entry point for command line call"""
+    exipicrename(__parse_args())
 
 if __name__ == '__main__':
+    main()
 
-    main(__parse_args())
 
 # *** THE END ***
