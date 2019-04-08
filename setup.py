@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 from setuptools import setup
+import exipicrename
 
 def readme():
     with open("README.md", "r") as fh:
@@ -10,7 +11,7 @@ def readme():
 
 setup(
     name='exipicrename',
-    version='0.0.0.3',
+    version=exipicrename.version,
     description='renaming pictures (and matching raw files) on embeded exif',
     long_description=readme(),
     classifiers=[

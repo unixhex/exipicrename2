@@ -32,6 +32,9 @@ import PIL
 import PIL.Image
 import PIL.ExifTags
 
+version_info = (0, 0, 0, 4)
+version = '.'.join(str(digit) for digit in version_info)
+
 __CAMERADICT = {}       # how to rename certain camera names (load from csv)
 __PIC_DICT = {}         # main storage for file meta data
 __CONF = {
@@ -437,6 +440,10 @@ def __parse_args():
     parser.add_argument("-n", "--simulate", "--dry-run",
                         action="store_true",
                         help="don't rename, just show what would happen")
+    parser.add_argument('-V', '--version',
+                        action='version',
+                        version=f'%(prog)s {version}',
+                        help='show the version number and exit')
     group = parser.add_mutually_exclusive_group()
     group.add_argument("-v", "--verbose", action="store_true")
     group.add_argument("-q", "--quiet", "--silent", action="store_true")
@@ -457,7 +464,9 @@ def __parse_args():
         set_short_names(True)
     if args.verbose:
         set_verbose(True)
-        print(f"""FLAGS:
+        print(f"""
+        version: {version}
+        FLAGS:
         verbose: {is_verbose()}
         silent: {is_silent()}
         dry_run: {is_dry_run()}
