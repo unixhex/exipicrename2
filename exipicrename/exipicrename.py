@@ -27,6 +27,7 @@ import csv
 import time
 import glob
 import argparse
+import copy
 # PIL from Pillow
 import PIL
 import PIL.Image
@@ -45,6 +46,7 @@ __CONF = {
     'ooc' : False,
     'ooc_extension': '.ooc',
     'short_names' : False,
+    'clean_data_after_run' : True,
     'serial_length': 3,
     'camera_rename_csv_file': "camera-model-rename.csv",
     'zero_value_ersatz': 'x',
@@ -111,7 +113,6 @@ def set_ooc_extension(ext: str = ".jpg"):
     please don't forget the delimiter (.)"""
     # we don't trust commandline-arguments, so we clean it ...
     newext = re.sub(r'[^a-zA-Z0-9._-]+', '', ext.strip().lower())
-    print(newext)
     __CONF['ooc_extension'] = newext
 def get_ooc_extension():
     """additional extension to mark 'out of cam' pictures
@@ -159,6 +160,15 @@ def get_serial_length():
     """get the length of the serial number (to be included in the file name) """
     return __CONF['serial_length']
 
+def set_clean_data_after_run(__clean: bool = True):
+    """for tests we wan't to analyze the dict,
+    but if used as a module, it needs to be cleaned up"""
+    __CONF['clean_data_after_run'] = __clean
+def do_clean_data_after_run():
+    """for tests we wan't to analyze the dict,
+    but if used as a module, it needs to be cleaned up"""
+    return __CONF['clean_data_after_run']
+
 def set_use_date_dir(_use_date_dir: bool = True):
     """write files to separate directory?"""
     __CONF['date_dir'] = _use_date_dir
@@ -200,6 +210,10 @@ def set_short_names(short_names: bool = True):
 def use_short_names():
     """get usage of short names (without camera exif)"""
     return __CONF['short_names']
+
+def export_pic_dict():
+    """for tests"""
+    return copy.deepcopy(__PIC_DICT)
 
 
 
@@ -668,7 +682,7 @@ def __organize_extra_files(pic):
         if extension not in get_raw_extensions():
             extracounter += 1
 
-def __clean_stored_data():
+def clean_stored_data():
     """cleanup stored data"""
     global __PIC_DICT  # pylint: disable=global-statement
     __PIC_DICT = {}
@@ -698,7 +712,8 @@ def exipicrename(filelist):
     __rename_files()
 
     # for use as a module: clean up stored data from __PIC_DICT
-    __clean_stored_data()
+    if do_clean_data_after_run():
+        clean_stored_data()
 
 def main():
     """main - entry point for command line call"""
