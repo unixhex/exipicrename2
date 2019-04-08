@@ -20,18 +20,36 @@ developed with python 3.7,
 might or might not work with earlier versions of python 3
 
 No waranty it is working for you, too.
-**Please make a backup of your files** before testing this. 
+**Please make a backup of your files** before testing this.
 
 
 This programm needs the python library "pillow".
 
 see also: requirements.txt
 
-install with python3 setup.py to your python environment
-or put exipicrename.py to your favourite $PATH 
+
+## Installation
+
+Install with `python3 setup.py install` to your python environment (you might need to use root / sudo for this).
+Necessary libraries should be installed automagically, exipicrename will be probably installed to `/usr/bin/expicrename`.
+
+or
+
+whithout root:
+`python3 setup.py install --user` will install it to your user python path (e.g. `$HOME/.local/lib/python3.7/site-packages/`). Necessary libraries should
+be installed automagically.
+
+For the script `exipicrename` you could add  `$HOME/.local/lib/exipicrename` to your $PATH  ( for bash put following line to .bashrc: `export $PATH=$PATH:/$HOME/.local/lib/expicrename` ).
+(Or do create a symlink to `$HOME/bin`)
+
+or
+
+* install python3-pillow (pip, system package)
+* copy / symlink `exipicrename.py` to your favourite `$PATH`
+
+## Usage
 
 ```
-usage:
 exipicrename {options} [files]
 options:
 
@@ -48,6 +66,7 @@ options:
                         exhaustive camera data
   -n, --simulate, --dry-run
                         don't rename, just show what would happen
+  -V, --version         show the version and exit
   -v, --verbose
   -q, --quiet, --silent
 ```
