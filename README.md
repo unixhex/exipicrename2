@@ -66,6 +66,7 @@ options:
                         exhaustive camera data
   -n, --simulate, --dry-run
                         don't rename, just show what would happen
+  -V, --version         show the version and exit
   -v, --verbose
   -q, --quiet, --silent
 ```
