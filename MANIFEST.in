@@ -1,4 +1,8 @@
-include exipicrename/camera-model-rename.csv
 include README.md
 include requirements.txt
 include LICENSE
+include exipicrename/camera-model-rename.csv
+include exipicrename/tests/
+include exipicrename/tests/fixtures/x_test.jpg
+include exipicrename/tests/fixtures/x_test.orf
+include exipicrename/tests/fixtures/x_test.xml

@@ -33,7 +33,7 @@ import PIL
 import PIL.Image
 import PIL.ExifTags
 
-version_info = (0, 0, 0, 4)
+version_info = (0, 0, 0, 5)
 version = '.'.join(str(digit) for digit in version_info)
 
 __CAMERADICT = {}       # how to rename certain camera names (load from csv)
