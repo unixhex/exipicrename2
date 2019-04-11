@@ -33,8 +33,8 @@ import PIL
 import PIL.Image
 import PIL.ExifTags
 
-version_info = (0, 0, 0, 5)
-version = '.'.join(str(digit) for digit in version_info)
+version_info = (0, 0, 0, 6) # pylint: disable=invalid-name
+version = '.'.join(str(digit) for digit in version_info) # pylint: disable=invalid-name
 
 __CAMERADICT = {}       # how to rename certain camera names (load from csv)
 __PIC_DICT = {}         # main storage for file meta data
@@ -48,7 +48,7 @@ __CONF = {
     'short_names' : False,
     'clean_data_after_run' : True,
     'serial_length': 3,
-    'camera_rename_csv_file': "camera-model-rename.csv",
+    'camera_rename_csv_file': os.path.join(os.path.dirname(__file__), "camera-model-rename.csv"),
     'zero_value_ersatz': 'x',
     'unwanted_character_ersatz': '-',
     'decimal_delimiter_ersatz': '-',
@@ -216,7 +216,6 @@ def export_pic_dict():
     return copy.deepcopy(__PIC_DICT)
 
 
-
 def __create_new_basename(img):
     """create a new filename based on exif data"""
     # fetch tagging from https://stackoverflow.com/a/4765242
@@ -247,7 +246,8 @@ def __create_new_basename(img):
         return None, None, None
 
     if not use_short_names():
-        _new_basename = f"{_datetime}__{{}}__{_camera}__{_focal_len}__{_aperture}__iso{_iso}"
+        _new_basename = f"{_datetime}__{{}}__{_camera}__{_focal_len}" + \
+            f"__{_aperture}__t{_exposure_time}__iso{_iso}"
     else:
         _new_basename = f"{_datetime}__{{}}"
 
@@ -258,6 +258,7 @@ def __format_camera_name(_name):
     if available, read translations for camera models from csv and apply them """
     _newname = re.sub(r'[^a-zA-Z0-9]+', get_unwanted_character_ersatz(), _name.strip().lower())
     __read_camera_rename_csv()
+
     if _newname in __CAMERADICT:
         return __CAMERADICT[_newname]
 
@@ -351,6 +352,8 @@ def __read_camera_rename_csv():
             for row in camera_model_translate:
                 __CAMERADICT[row[0]] = row[1]
     except OSError:
+        if is_verbose():
+            print("camera translation csv not found: ", get_camera_rename_csv_name())
         pass
 
 def splitext_all(_filename):
@@ -378,14 +381,19 @@ def __picdict_set_serial_once(_pic, _serial, _serial_length):
 
 def __picdict_has_orig_filepath(filepath):
     """search if this filename is already recorded in global __PIC_DICT"""
+
+    _dir, _ = os.path.split(filepath)
+    _basename, _ext = os.path.splitext(_)
+
     for filerecord in __PIC_DICT.values():
         try:
-            if filerecord['orig_filename'] == filepath:
+            if filerecord['orig_basename'] == _basename \
+                and filerecord['orig_extension'] == _ext \
+                and filerecord['orig_dirname'] == _dir:
                 return True
         except KeyError:
             pass
         return False
-
 
 def __rename_files():
     """rename files (after check if we don't overwrite)"""
@@ -396,6 +404,7 @@ def __rename_files():
             __PIC_DICT[k]["orig_basename"],
             __PIC_DICT[k]["orig_extension"],
             )
+
         newname = "{}/{}{}".format(
             __PIC_DICT[k]["new_dirname"],
             __PIC_DICT[k]["new_basename"],
@@ -500,6 +509,19 @@ def __read_picture_data(_filelist):
         if not extension in get_jpg_input_extensions():
             continue
 
+        orig_dirname, origfilename = os.path.split(orig_filepath)
+        orig_basename, orig_all_extensions = splitext_all(origfilename)
+        # the orig_dirname might be empty->absolute path
+        orig_dirname = os.path.abspath(os.path.expanduser(orig_dirname))
+        orig_filepath = os.path.join(orig_dirname, orig_basename + orig_all_extensions)
+
+        # ensure we don't read the same picture twice
+
+        if __picdict_has_orig_filepath(orig_filepath):
+            if is_verbose():
+                print(f"{orig_filepath} already processed")
+            continue
+
         try:
             with PIL.Image.open(orig_filepath) as picture:
                 timestamp, new_basename, date = __create_new_basename(picture)
@@ -526,11 +548,6 @@ def __read_picture_data(_filelist):
             #ctime = str(os.path.getctime(orig_filepath))
             #mtime = str(os.path.getmtime(orig_filepath))
 
-
-            orig_dirname, origfilename = os.path.split(orig_filepath)
-            orig_basename, orig_all_extensions = splitext_all(origfilename)
-            # the orig_dirname might be empty->absolute path
-            orig_dirname = os.path.abspath(os.path.expanduser(orig_dirname))
 
             __PIC_DICT[f"{timestamp}_{duplicate}"] = {
                 'timestamp': timestamp,
@@ -562,9 +579,13 @@ def __organize_picture_data():
 
     # walk now through all pictures to process them
     for pic in pic_list:
-        __organize_jpg_files(pic, serial)
-        __organize_extra_files(pic)
-        serial += 1
+        orig_extension = __PIC_DICT[pic]['orig_extension']
+        extension = "." + orig_extension.split(".")[-1]
+
+        if extension in get_jpg_input_extensions():
+            __organize_jpg_files(pic, serial)
+            __organize_extra_files(pic)
+            serial += 1
 
 def __organize_jpg_files(pic, serial):
     """organize new paths for the jpg files"""
@@ -645,6 +666,7 @@ def __organize_extra_files(pic):
         __PIC_DICT[pic]['orig_basename'],
         ) + \
         __PIC_DICT[pic]['orig_extension']
+
     duplicate = __PIC_DICT[pic]['duplicate']
 
     for extrafile in glob.glob(f'{orig_dirname}/{orig_basename}.*'):
