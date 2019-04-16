@@ -7,8 +7,8 @@ import sys
 from tempfile import TemporaryDirectory
 from shutil import copy
 # my test subject lives one dir up
-sys.path.append(os.path.join(os.path.dirname(__file__),".."))
-import exipicrename
+sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
+import exipicrename   # pylint: disable=wrong-import-position
 
 #VERBOSE = True
 VERBOSE = False
@@ -117,6 +117,8 @@ class TestExipicrenameVirtual(unittest.TestCase):
         """test option --datadir (virtual)"""
         exipicrename.set_dry_run(True)
         exipicrename.set_use_date_dir(True)
+        exipicrename.set_use_duplicate(True)
+        exipicrename.set_use_serial(True)
         if VERBOSE:
             exipicrename.set_verbose(True)
         else:
@@ -144,6 +146,8 @@ class TestExipicrenameVirtual(unittest.TestCase):
             exipicrename.set_silent(True)
         exipicrename.set_clean_data_after_run(False)
         exipicrename.set_use_date_dir(False)
+        exipicrename.set_use_duplicate(True)
+        exipicrename.set_use_serial(True)
         exipicrename.set_ooc_extension(".foobar")
         exipicrename.set_use_ooc(True)
         exipicrename.exipicrename(self.testfiles)
@@ -203,6 +207,8 @@ class TestExipicrenameReal(unittest.TestCase):
         exipicrename.set_use_ooc(False)
         exipicrename.set_dry_run(False)
         exipicrename.set_use_date_dir(False)
+        exipicrename.set_use_duplicate(True)
+        exipicrename.set_use_serial(True)
 
         with TemporaryDirectory() as temp_dir:
 
@@ -238,6 +244,8 @@ class TestExipicrenameReal(unittest.TestCase):
         exipicrename.set_use_ooc(False)
         exipicrename.set_dry_run(False)
         exipicrename.set_use_date_dir(False)
+        exipicrename.set_use_duplicate(True)
+        exipicrename.set_use_serial(True)
 
         with TemporaryDirectory() as temp_dir:
 
@@ -269,6 +277,8 @@ class TestExipicrenameReal(unittest.TestCase):
         exipicrename.set_use_ooc(False)
         exipicrename.set_dry_run(False)
         exipicrename.set_use_date_dir(True)
+        exipicrename.set_use_duplicate(True)
+        exipicrename.set_use_serial(True)
 
         with TemporaryDirectory() as temp_dir:
 
@@ -282,6 +292,81 @@ class TestExipicrenameReal(unittest.TestCase):
 
             for _dir in dirs:
                 self.assertTrue(os.path.isdir(os.path.join(temp_dir, _dir)))
+
+    def test_rename_no_serial(self):
+        """test renaming with serial switched off (real files in tmp env)"""
+
+        defaultfiles = [
+            "20090604_184453__e-520__25mm__f2-8__t3200__iso100.jpg",
+            "20090604_184453__e-520__25mm__f2-8__t3200__iso100.xml",
+            "20090604_184453__e-520__25mm__f2-8__t3200__iso100.orf",
+            "20171123_164006__s4mini__3mm__f2-6__t17__iso125.jpg",
+            "20171123_164006__s4mini__3mm__f2-6__t17__iso125_1.jpg",
+            'z_test.jpg'
+            ]
+
+        if VERBOSE:
+            exipicrename.set_verbose(True)
+        else:
+            exipicrename.set_silent(True)
+
+        exipicrename.set_short_names(False)
+        exipicrename.set_use_ooc(False)
+        exipicrename.set_dry_run(False)
+        exipicrename.set_use_date_dir(False)
+        exipicrename.set_use_duplicate(True)
+        exipicrename.set_use_serial(False)
+
+        with TemporaryDirectory() as temp_dir:
+
+            fill_tmpdir(temp_dir, self.source_dir, self.testfiles)
+
+            realfiles = [temp_dir + "/" + e for e in os.listdir(temp_dir)]
+
+            exipicrename.exipicrename(realfiles)
+
+            defaultfiles.sort()
+            tmpdirfiles = os.listdir(temp_dir)
+            tmpdirfiles.sort()
+            self.assertEqual(defaultfiles, tmpdirfiles)
+
+    def test_rename_no_duplicate(self):
+        """test renaming with duplicate marking number switched off (real files in tmp env)"""
+
+        defaultfiles = [
+            "20090604_184453__001__e-520__25mm__f2-8__t3200__iso100.jpg",
+            "20090604_184453__001__e-520__25mm__f2-8__t3200__iso100.xml",
+            "20090604_184453__001__e-520__25mm__f2-8__t3200__iso100.orf",
+            "20171123_164006__002__s4mini__3mm__f2-6__t17__iso125.jpg",
+            "20171123_164006__003__s4mini__3mm__f2-6__t17__iso125.jpg",
+            'z_test.jpg'
+            ]
+
+        if VERBOSE:
+            exipicrename.set_verbose(True)
+        else:
+            exipicrename.set_silent(True)
+
+        exipicrename.set_short_names(False)
+        exipicrename.set_use_ooc(False)
+        exipicrename.set_dry_run(False)
+        exipicrename.set_use_date_dir(False)
+        exipicrename.set_use_duplicate(False)
+        exipicrename.set_use_serial(True)
+
+        with TemporaryDirectory() as temp_dir:
+
+            fill_tmpdir(temp_dir, self.source_dir, self.testfiles)
+
+            realfiles = [temp_dir + "/" + e for e in os.listdir(temp_dir)]
+
+            exipicrename.exipicrename(realfiles)
+
+            defaultfiles.sort()
+            tmpdirfiles = os.listdir(temp_dir)
+            tmpdirfiles.sort()
+            self.assertEqual(defaultfiles, tmpdirfiles)
+
 
 if __name__ == '__main__':
     unittest.main()

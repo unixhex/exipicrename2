@@ -28,12 +28,13 @@ import time
 import glob
 import argparse
 import copy
+import logging
 # PIL from Pillow
 import PIL
 import PIL.Image
 import PIL.ExifTags
 
-version_info = (0, 0, 0, 6) # pylint: disable=invalid-name
+version_info = (0, 0, 0, 7) # pylint: disable=invalid-name
 version = '.'.join(str(digit) for digit in version_info) # pylint: disable=invalid-name
 
 __CAMERADICT = {}       # how to rename certain camera names (load from csv)
@@ -41,8 +42,11 @@ __PIC_DICT = {}         # main storage for file meta data
 __CONF = {
     'date_dir' : False,
     'verbose' : False,
+    'debug' : False,
     'silent' : False,
     'dry_run' : False,
+    'use_serial' : True,
+    'use_duplicate' : True,
     'ooc' : False,
     'ooc_extension': '.ooc',
     'short_names' : False,
@@ -183,6 +187,13 @@ def is_verbose():
     """get verbosity (bool)"""
     return __CONF['verbose']
 
+def set_debug(debug: bool = True):
+    """set debug (bool)"""
+    __CONF['debug'] = debug
+def is_debug():
+    """get debug status (bool)"""
+    return __CONF['debug']
+
 def set_silent(silent: bool = True):
     """set silence (bool)"""
     __CONF['silent'] = silent
@@ -196,6 +207,20 @@ def set_dry_run(dry_run: bool = True):
 def is_dry_run():
     """get dry-run (simulation-mode status)"""
     return __CONF['dry_run']
+
+def set_use_serial(use_serial: bool = True):
+    """include a serial number"""
+    __CONF['use_serial'] = use_serial
+def use_serial():
+    """should we include serial number?"""
+    return __CONF['use_serial']
+
+def set_use_duplicate(use_duplicate: bool = True):
+    """include a duplicate number if the same timestamp occurs"""
+    __CONF['use_duplicate'] = use_duplicate
+def use_duplicate():
+    """should we include a duplicate number?"""
+    return __CONF['use_duplicate']
 
 def set_use_ooc(_use_ooc: bool = True):
     """set use of ooc extension"""
@@ -216,6 +241,19 @@ def export_pic_dict():
     return copy.deepcopy(__PIC_DICT)
 
 
+def verboseprint(*msg):
+    """print verbose messages"""
+    #print("P", *msg)
+    #logging.info(*msg)
+    for m in msg:
+        logging.info(str(m))
+    
+def errorprint(*args):
+    """print error messages"""
+    #print(*args, file=sys.stderr)
+    for m in args:
+        logging.error(str(m))
+
 def __create_new_basename(img):
     """create a new filename based on exif data"""
     # fetch tagging from https://stackoverflow.com/a/4765242
@@ -227,7 +265,7 @@ def __create_new_basename(img):
         }
     except AttributeError:
         if is_verbose():
-            print('NO exif info in ' + img.filename, file=sys.stderr)
+            errorprint('NO exif info in ' + img.filename)
         return None, None, None
 
     try:
@@ -241,15 +279,14 @@ def __create_new_basename(img):
             _iso = (exif['ISOSpeedRatings'])
     except KeyError as err:
         if is_verbose():
-            print('(Some) exif tags missing in ' + img.filename, file=sys.stderr)
-            print(err)
+            errorprint('(Some) exif tags missing in ' + img.filename, err)
         return None, None, None
 
     if not use_short_names():
-        _new_basename = f"{_datetime}__{{}}__{_camera}__{_focal_len}" + \
+        _new_basename = f"{_datetime}{{}}__{_camera}__{_focal_len}" + \
             f"__{_aperture}__t{_exposure_time}__iso{_iso}"
     else:
-        _new_basename = f"{_datetime}__{{}}"
+        _new_basename = f"{_datetime}{{}}"
 
     return _datetime, _new_basename, _date
 
@@ -353,7 +390,7 @@ def __read_camera_rename_csv():
                 __CAMERADICT[row[0]] = row[1]
     except OSError:
         if is_verbose():
-            print("camera translation csv not found: ", get_camera_rename_csv_name())
+            verboseprint("camera translation csv not found: ", get_camera_rename_csv_name())
         pass
 
 def splitext_all(_filename):
@@ -375,8 +412,12 @@ def __picdict_set_serial_once(_pic, _serial, _serial_length):
         pass
 
     __PIC_DICT[_pic]['serial'] = _serial
-    __PIC_DICT[_pic]['new_basename'] = \
-        __PIC_DICT[_pic]['new_basename'].format(str(_serial).zfill(_serial_length))
+    if use_serial():
+        __PIC_DICT[_pic]['new_basename'] = \
+            __PIC_DICT[_pic]['new_basename'].format("__" +str(_serial).zfill(_serial_length))
+    else:
+        __PIC_DICT[_pic]['new_basename'] = \
+            __PIC_DICT[_pic]['new_basename'].format("")
     return True
 
 def __picdict_has_orig_filepath(filepath):
@@ -415,14 +456,13 @@ def __rename_files():
             continue
 
         if not os.path.isfile(oldname) and not is_silent():
-            print(f"WARNING: want to rename {oldname}\n"
+            errorprint(f"WARNING: want to rename {oldname}\n"
                   f"                     to {newname}\n"
-                  f"         but orig file not available any more", file=sys.stderr)
+                  f"         but orig file not available any more")
             continue
         if os.path.isfile(newname) and not is_silent():
-            print(f"WARNING: did not overwrite existing file\n"
-                  f"\t{newname}\n\twith:\n"
-                  f"\t{oldname}", file=sys.stderr)
+            errorprint(f"WARNING: did not overwrite existing file\n"
+                  f"\t{newname}\n\twith:\n \t{oldname}")
             continue
             sys.exit()  # pylint: disable=unreachable
             # we really really don't want to overwrite files
@@ -432,8 +472,8 @@ def __rename_files():
         if is_dry_run():
             msg = "SIMULATION| "
         if is_verbose() or (is_dry_run() and not is_silent()):
-            print(f"{msg}rename old: {oldname} ")
-            print(f"{msg}to NEW    : {newname} ")
+            verboseprint(f"{msg}rename old: {oldname} ")
+            verboseprint(f"{msg}to NEW    : {newname} ")
 
         if not is_dry_run():
             os.rename(oldname, newname)
@@ -463,14 +503,28 @@ def __parse_args():
     parser.add_argument("-n", "--simulate", "--dry-run",
                         action="store_true",
                         help="don't rename, just show what would happen")
+    parser.add_argument("--debug",
+                        action="store_true",
+                        help="debug")
     parser.add_argument('-V', '--version',
                         action='version',
                         version=f'%(prog)s {version}',
                         help='show the version number and exit')
-    group = parser.add_mutually_exclusive_group()
-    group.add_argument("-v", "--verbose", action="store_true")
-    group.add_argument("-q", "--quiet", "--silent", action="store_true")
+    group_number = parser.add_mutually_exclusive_group()
+    group_number.add_argument("--no-serial", action="store_true",
+                        help="don't include a serial number")
+    group_number.add_argument("--no-duplicate", action="store_true",
+                        help="don't attach a duplicate number if the same timestamp occurrs more than once")
+    group_verbose = parser.add_mutually_exclusive_group()
+    group_verbose.add_argument("-v", "--verbose", action="store_true")
+    group_verbose.add_argument("-q", "--quiet", "--silent", action="store_true")
     args = parser.parse_args()
+    if args.no_serial:
+        set_use_serial(False)
+        set_use_duplicate(True)
+    if args.no_duplicate:
+        set_use_serial(True)
+        set_use_duplicate(False)
     if args.quiet:
         set_silent(True)
         set_verbose(False)
@@ -485,9 +539,14 @@ def __parse_args():
         set_use_ooc(True)
     if args.short:
         set_short_names(True)
+    if args.debug:
+        logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.DEBUG)
+        set_debug(True)
     if args.verbose:
+        if logging.getLogger().getEffectiveLevel() >= logging.INFO:
+            logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.INFO)
         set_verbose(True)
-        print(f"""
+        verboseprint(f"""
         version: {version}
         FLAGS:
         verbose: {is_verbose()}
@@ -496,7 +555,12 @@ def __parse_args():
         use_date_dir: {use_date_dir()},
         use_ooc: {use_ooc()}
         short_names: {use_short_names()}
+        use_serial: {use_serial()}
+        use_duplicate: {use_duplicate()}
+        log_level: {logging.getLevelName(logging.getLogger().getEffectiveLevel())}
         """)
+    if logging.getLogger().getEffectiveLevel() >= logging.INFO:
+        logging.basicConfig(format='%(levelname)s:%(message)s')
     return args.file
 
 
@@ -519,7 +583,7 @@ def __read_picture_data(_filelist):
 
         if __picdict_has_orig_filepath(orig_filepath):
             if is_verbose():
-                print(f"{orig_filepath} already processed")
+                verboseprint(f"{orig_filepath} already processed")
             continue
 
         try:
@@ -528,7 +592,7 @@ def __read_picture_data(_filelist):
 
         except OSError:
             if not is_silent():
-                print(f"{orig_filepath} can't be opened as image", file=sys.stderr)
+                errorprint(f"{orig_filepath} can't be opened as image")
             continue
 
         if new_basename:
@@ -627,16 +691,15 @@ def __organize_jpg_files(pic, serial):
             try:
                 if is_dry_run():
                     if is_verbose():
-                        print(f"INFO: create new directory: {new_dirname} (SIMULATION MODE)")
+                        verboseprint(f"INFO: create new directory: {new_dirname} (SIMULATION MODE)")
                 else:
                     if is_verbose():
-                        print(f"INFO: create new directory: {new_dirname}")
+                        verboseprint(f"INFO: create new directory: {new_dirname}")
 
                     os.makedirs(new_dirname)
 
             except FileExistsError:
-                print(f'ERROR: There is a {new_dirname}, but it is not a directory',
-                      file=sys.stderr)
+                errorprint(f'ERROR: There is a {new_dirname}, but it is not a directory')
                 sys.exit()
 
     # don't move files to an other directory
@@ -645,7 +708,7 @@ def __organize_jpg_files(pic, serial):
 
     __PIC_DICT[pic]['new_dirname'] = new_dirname
 
-    if duplicate:
+    if duplicate and use_duplicate():
         __PIC_DICT[pic]['new_basename'] = __PIC_DICT[pic]['new_basename'] + f'_{duplicate}'
 
     if use_ooc():
@@ -721,7 +784,7 @@ def exipicrename(filelist):
             filelist = [filelist]
         else:
             if not is_silent():
-                print(f"Error: expected list of files ", file=sys.stderr)
+                errorprint(f"Error: expected list of files ")
             sys.exit(1)
 
     __read_picture_data(filelist)
@@ -739,6 +802,8 @@ def exipicrename(filelist):
 
 def main():
     """main - entry point for command line call"""
+    #logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.INFO)
+    #logging.basicConfig(format='%(levelname)s:%(message)s')
     exipicrename(__parse_args())
 
 if __name__ == '__main__':
