@@ -23,7 +23,7 @@ setup(
       ],
     url='https://github.com/unixhex/exipicrename2',
     author='Hella Breitkopf',
-    author_email="expicrename@unixwitch.de",
+    author_email="exipicrename@unixwitch.de",
     license='MIT',
     packages=['exipicrename'],
     platforms=['Linux'],
