@@ -34,7 +34,7 @@ import PIL
 import PIL.Image
 import PIL.ExifTags
 
-version_info = (0, 0, 0, 7) # pylint: disable=invalid-name
+version_info = (0, 0, 0, 8) # pylint: disable=invalid-name
 version = '.'.join(str(digit) for digit in version_info) # pylint: disable=invalid-name
 
 __CAMERADICT = {}       # how to rename certain camera names (load from csv)
@@ -247,7 +247,7 @@ def verboseprint(*msg):
     #logging.info(*msg)
     for m in msg:
         logging.info(str(m))
-    
+
 def errorprint(*args):
     """print error messages"""
     #print(*args, file=sys.stderr)
@@ -302,27 +302,35 @@ def __format_camera_name(_name):
     return _newname
 
 
-def __format_aperture_tuple(_tuple):
-    "format aperture tuple to short printable string"
-    numerator = _tuple[0]  # numerator = zaehler
-    divisor = _tuple[1]    # divisor = nenner
+def __format_aperture_tuple(_ap):
+    """format aperture tuple to short printable string
+    new pillow might not return tuple, so check first"""
+
+    if (isinstance(_ap,tuple)):
+        numerator = _ap[0]  # numerator = zaehler
+        divisor = _ap[1]    # divisor = nenner
+    else:
+        numerator=_ap.numerator
+        divisor=_ap.denominator
 
     if numerator == 0:
         return get_zero_value_ersatz()
-
     if numerator % divisor == 0:
         return "f" + str(numerator//divisor)
-
-    return "f" + str(numerator/divisor).replace('.', get_decimal_delimiter_ersatz())
-
+    else:
+        return "f" + str(numerator/divisor).replace('.', get_decimal_delimiter_ersatz())
 
 def __format_focal_length_tuple(_tuple):
     """format FocalLenght tuple to short printable string
     we ignore the position after the decimal point
     because it is usually not very essential for focal length
     """
-    numerator = _tuple[0]
-    divisor = _tuple[1]
+    if (isinstance(_tuple,tuple)):
+        numerator = _tuple[0]
+        divisor = _tuple[1]
+    else:
+        numerator=_tuple.numerator
+        divisor=_tuple.denominator
 
     if numerator == 0:
         return get_zero_value_ersatz()
@@ -343,15 +351,19 @@ def __format_focal_length_tuple(_tuple):
     return _string
 
 
-def __format_exposuretime_tuple(_tuple):
+def __format_exposuretime_tuple(_time):
     """format ExposureTime tuple to short printable string
     fractions over or equal 1 second are marked with s, e.g. 8s
     fractions below 1 second are broken down to the divisor,
     this is a bit incorrect but short and common e.g. in cameras
     (and we want to have a short string)
     """
-    numerator = _tuple[0]
-    divisor = _tuple[1]
+    if (isinstance(_time,tuple)):
+        numerator = _time[0]
+        divisor = _time[1]
+    else:
+        numerator=_time.numerator
+        divisor=_time.denominator
     if numerator % 10 == 0 and divisor % 10 == 0:
         # change 10/1250 to 1/125
         numerator = numerator // 10

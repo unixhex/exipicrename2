@@ -16,7 +16,7 @@ used exif tags are:
 Working Platform (beta): Linux
 Target Platform (very early dev): Android
 
-developed with python 3.7,
+developed with python 3.8,
 might or might not work with earlier versions of python 3
 
 No waranty it is working for you, too.
@@ -72,7 +72,7 @@ options:
 ```
 
 
-Copyright (c) 2019 Hella Breitkopf, https://www.unixwitch.de
+Copyright (c) 2019,2020 Hella Breitkopf, https://www.unixwitch.de
 
 MIT License -> see LICENSE file
 
