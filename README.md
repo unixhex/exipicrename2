@@ -72,7 +72,7 @@ options:
 ```
 
 
-Copyright (c) 2019,2020 Hella Breitkopf, https://www.unixwitch.de
+Copyright (c) 2019,2022 Hella Breitkopf, https://www.unixwitch.de
 
 MIT License -> see LICENSE file
 

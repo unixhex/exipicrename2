@@ -34,7 +34,7 @@ import PIL
 import PIL.Image
 import PIL.ExifTags
 
-version_info = (0, 0, 0, 9) # pylint: disable=invalid-name
+version_info = (0, 0, 1, 0) # pylint: disable=invalid-name
 version = '.'.join(str(digit) for digit in version_info) # pylint: disable=invalid-name
 
 __CAMERADICT = {}       # how to rename certain camera names (load from csv)
