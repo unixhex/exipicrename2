@@ -10,8 +10,9 @@ from shutil import copy
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 import exipicrename   # pylint: disable=wrong-import-position
 
-#VERBOSE = True
+# VERBOSE = True
 VERBOSE = False
+
 
 class TestExipicrenameVirtual(unittest.TestCase):
     """unittest class for exipicrename (virtual - without file changes)"""
@@ -19,13 +20,13 @@ class TestExipicrenameVirtual(unittest.TestCase):
     test_dir, _ = os.path.split(os.path.abspath(__file__))
 
     testfiles = [
-        test_dir + '/fixtures/x_test.jpg',  # e520
-        test_dir + '/fixtures/x_test.jpg',  # same file e520
-        test_dir + '/fixtures/y_test.jpg',  # s4mini
-        test_dir + '/fixtures/yy_test.jpg', # duplicate
-        test_dir + '/fixtures/z_test.jpg',  # empty
-        test_dir + '/fixtures/0_test.jpg',  # file not existing
-        ]
+        test_dir + '/fixtures/x_test.jpg',   # e520
+        test_dir + '/fixtures/x_test.jpg',   # same file e520
+        test_dir + '/fixtures/y_test.jpg',   # s4mini
+        test_dir + '/fixtures/yy_test.jpg',  # duplicate
+        test_dir + '/fixtures/z_test.jpg',   # empty
+        test_dir + '/fixtures/0_test.jpg',   # file not existing
+    ]
 
     TEST_DICT_DEFAULT = {
         '20090604_184453_0': {
@@ -33,40 +34,41 @@ class TestExipicrenameVirtual(unittest.TestCase):
             'duplicate': 0,
             'orig_basename': 'x_test',
             'new_basename': '20090604_184453__001__e-520__25mm__f2-8__t3200__iso100',
-            #'orig_dirname': 'absolut path, not usefull for tests'
+            # 'orig_dirname': 'absolut path, not usefull for tests'
             'orig_extension': '.jpg',
             'date': '2009-06-04',
             'serial': 1,
-            #'new_dirname':
+            # 'new_dirname':
             'new_extension': '.jpg'
-            },
+        },
         '20090604_184453_0_0': {
-            #'orig_dirname': 'absolut path, not usefull for tests',
-            #'new_dirname': 'absolut path, not usefull for tests',
+            # 'orig_dirname': 'absolut path, not usefull for tests',
+            # 'new_dirname': 'absolut path, not usefull for tests',
             'orig_basename': 'x_test',
             'new_basename': '20090604_184453__001__e-520__25mm__f2-8__t3200__iso100',
             'orig_extension': '.xml',
             'new_extension': '.xml'},
         '20090604_184453_0_raw': {
-            #'orig_dirname': 'absolut path, not usefull for tests',
-            #'new_dirname': 'absolut path, not usefull for tests',
+            # 'orig_dirname': 'absolut path, not usefull for tests',
+            # 'new_dirname': 'absolut path, not usefull for tests',
             'orig_basename': 'x_test',
             'new_basename': '20090604_184453__001__e-520__25mm__f2-8__t3200__iso100',
             'orig_extension': '.orf',
             'new_extension': '.orf'
-            }
         }
+    }
     TEST_FIRST_KEY = '20090604_184453_0'
     TEST_SHORT_BASENAME = '20090604_184453__001'
 
     def test_dry_run_false(self):
         """test without option --dry-run (virtual)"""
         exipicrename.set_dry_run(False)
-        self.assertFalse(exipicrename.is_dry_run(), f"dry run should be set to False")
+        self.assertFalse(exipicrename.is_dry_run(), "dry run should be set to False")
+
     def test_dry_run_true(self):
         """test option --dry-run (virtual)"""
         exipicrename.set_dry_run(True)
-        self.assertTrue(exipicrename.is_dry_run(), f"dry run should be set to True")
+        self.assertTrue(exipicrename.is_dry_run(), "dry run should be set to True")
 
     def test_rename_default(self):
         """test default renaming (virtual)"""
@@ -81,7 +83,7 @@ class TestExipicrenameVirtual(unittest.TestCase):
         exipicrename.exipicrename(self.testfiles)
         e_dict = exipicrename.export_pic_dict()
 
-        for index in self.TEST_DICT_DEFAULT:
+        for index in self.TEST_DICT_DEFAULT:    # pylint: disable=consider-using-dict-items
             self.assertEqual(
                 self.TEST_DICT_DEFAULT[index]['new_basename'],
                 e_dict[index]['new_basename'],
@@ -161,11 +163,13 @@ class TestExipicrenameVirtual(unittest.TestCase):
         )
         exipicrename.clean_stored_data()
 
+
 def fill_tmpdir(temp_dir, source_dir, testfiles):
     """copy files to temporary testdir"""
     for _file in testfiles:
         if os.path.isfile(source_dir + _file):
             copy(source_dir + _file, temp_dir)
+
 
 class TestExipicrenameReal(unittest.TestCase):
     """unittest class for exipicrename (in a temp environment with real files)"""
@@ -173,17 +177,16 @@ class TestExipicrenameReal(unittest.TestCase):
     test_dir, _ = os.path.split(os.path.abspath(__file__))
 
     testfiles = [
-        'x_test.jpg',  # e520
-        'x_test.jpg',  # same file e520
-        'x_test.orf',  # "raw" (empty)
-        'x_test.xml',  # "sidecar xml" (empty)
-        'y_test.jpg',  # s4mini
-        'yy_test.jpg', # duplicate
+        'x_test.jpg',   # e520
+        'x_test.jpg',   # same file e520
+        'x_test.orf',   # "raw" (empty)
+        'x_test.xml',   # "sidecar xml" (empty)
+        'y_test.jpg',   # s4mini
+        'yy_test.jpg',  # duplicate
         'z_test.jpg',  # empty
         '0_test.jpg',  # file not existing
-        ]
+    ]
 
-        #'20171123_164006__003__gt-i9195__3mm__f2-6__t17__iso125_1.jpg',
     source_dir = test_dir + "/fixtures/"
 
     def test_rename_default(self):
@@ -196,7 +199,7 @@ class TestExipicrenameReal(unittest.TestCase):
             "20171123_164006__002__s4mini__3mm__f2-6__t17__iso125.jpg",
             "20171123_164006__003__s4mini__3mm__f2-6__t17__iso125_1.jpg",
             'z_test.jpg'
-            ]
+        ]
 
         if VERBOSE:
             exipicrename.set_verbose(True)
@@ -233,7 +236,7 @@ class TestExipicrenameReal(unittest.TestCase):
             "20171123_164006__002.jpg",
             "20171123_164006__003_1.jpg",
             'z_test.jpg'
-            ]
+        ]
 
         if VERBOSE:
             exipicrename.set_verbose(True)
@@ -266,7 +269,7 @@ class TestExipicrenameReal(unittest.TestCase):
         dirs = [
             "2009-06-04",
             "2017-11-23",
-            ]
+        ]
 
         if VERBOSE:
             exipicrename.set_verbose(True)
@@ -288,8 +291,6 @@ class TestExipicrenameReal(unittest.TestCase):
 
             exipicrename.exipicrename(realfiles)
 
-            #print(os.listdir(temp_dir))
-
             for _dir in dirs:
                 self.assertTrue(os.path.isdir(os.path.join(temp_dir, _dir)))
 
@@ -303,7 +304,7 @@ class TestExipicrenameReal(unittest.TestCase):
             "20171123_164006__s4mini__3mm__f2-6__t17__iso125.jpg",
             "20171123_164006__s4mini__3mm__f2-6__t17__iso125_1.jpg",
             'z_test.jpg'
-            ]
+        ]
 
         if VERBOSE:
             exipicrename.set_verbose(True)
@@ -340,7 +341,7 @@ class TestExipicrenameReal(unittest.TestCase):
             "20171123_164006__002__s4mini__3mm__f2-6__t17__iso125.jpg",
             "20171123_164006__003__s4mini__3mm__f2-6__t17__iso125.jpg",
             'z_test.jpg'
-            ]
+        ]
 
         if VERBOSE:
             exipicrename.set_verbose(True)
