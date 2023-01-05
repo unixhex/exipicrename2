@@ -1,9 +1,10 @@
 # exipicrename2
 
-python3 script for renaming pictures (and matching (raw, xml, txt, ..) files)
+Python3 script for renaming pictures (and matching (raw, xml, txt, ..) files)
 on base of embedded exif / iptc data - date, camera name, serial numbers e.g.
 
 reads exif data from pictures and rename them
+
 used exif tags are:
 * DateTimeOriginal
 * DateTimeOriginal
@@ -13,31 +14,37 @@ used exif tags are:
 * Model
 * ISOSpeedRatings
 
-Working Platform (beta): Linux
-Target Platform (very early dev): Android
+Python Versions: Python 3.7 - Python 3.12-dev
 
-Developed with python 3.8, unit-tested with python 3.7 to python 3.12-dev
+Operating Systems: Developed on and for Linux (OpenSuse, Ubuntu, should work on any Linux with Python), Unit-Tests indicate it could also used on MacOS and Windows (see Github Actions).
 
-No warranty it is working for you, too.
+
+[![Lint](../../actions/workflows/lint.yml/badge.svg)](../../actions/workflows/lint.yml)
+[![Unit-Test](../../actions/workflows/unit-test.yml/badge.svg)](../../actions/workflows/unit-test.yml)
+
+
+No warranty this is working for you, too.
+
 **Please make a backup of your files** before using this script.
 
-This program needs the python library "pillow".
+This program needs the Python library *"Pillow"* (will be installed if you use the install process).
 
 See also: `requirements.txt`
 
 
 ## Installation
 
+
 ### System wide installation
-Install with `python3 setup.py install` to your python environment (you might need to use **root** / sudo for this).
-Necessary libraries should be installed automagically, exipicrename will be probably installed to `/usr/bin/expicrename`.
+Install with `python3 setup.py install` to your Python environment (you might need to use your **root** (sudo) / **Admin** for this).
+Necessary libraries should be installed automagically (on Linux: exipicrename will be probably installed to `/usr/bin/expicrename`).
 
 or
 
 ### Individual user installation
-`python3 setup.py install --user` will install it to your user python path (e.g. `$HOME/.local/lib/python3.7/site-packages/`). Necessary libraries should
-be installed automagically.
+`python3 setup.py install --user` will install it to your user's python path (On Linux e.g. `$HOME/.local/lib/python3.7/site-packages/`). Necessary libraries should be installed automagically.
 
+Linux (and probably MacOS):
 For the script `exipicrename` you could add  `$HOME/.local/lib/exipicrename` to your $PATH  ( for bash put following line to .bashrc: `export $PATH=$PATH:/$HOME/.local/lib/expicrename` ).
 (Or do create a symlink to `$HOME/bin`)
 
