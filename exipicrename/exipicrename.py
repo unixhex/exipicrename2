@@ -332,7 +332,7 @@ def __create_new_basename(img):
             _exposure_time = __format_exposuretime_tuple(exif['ExposureTime'])
             _focal_len = __format_focal_length_tuple(exif['FocalLength'])
             _camera = __format_camera_name(exif['Model'])
-            _iso = (exif['ISOSpeedRatings'])
+            _iso = exif['ISOSpeedRatings']
     except KeyError as err:
         if is_verbose():
             errorprint('(Some) exif tags missing in ' + img.filename, err)
@@ -540,8 +540,7 @@ def __rename_files():
             sys.exit()  # pylint: disable=unreachable
             # we really really don't want to overwrite files
 
-        if is_verbose():
-            msg = ""
+        msg = ""
         if is_dry_run():
             msg = "SIMULATION| "
         if is_verbose() or (is_dry_run() and not is_silent()):
