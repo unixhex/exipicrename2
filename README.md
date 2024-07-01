@@ -14,7 +14,7 @@ used exif tags are:
 * Model
 * ISOSpeedRatings
 
-Python Versions: Python 3.8 - Python 3.12
+Python Versions: Python 3.8 - Python 3.13beta
 (with older - but insecure - Pillow Version less or equal 9.4 also Python 3.7)
 
 Operating Systems: Developed on and for Linux (OpenSuse, Ubuntu, should work on any Linux with Python), Unit-Tests indicate it could also used on MacOS and Windows (see Github Actions).
