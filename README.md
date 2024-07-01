@@ -80,7 +80,7 @@ options:
 ```
 
 
-Copyright (c) 2019,2023 Hella Breitkopf, https://www.unixwitch.de
+Copyright (c) 2019,2024 Hella Breitkopf, https://www.unixwitch.de
 
 MIT License -> see LICENSE file
 
